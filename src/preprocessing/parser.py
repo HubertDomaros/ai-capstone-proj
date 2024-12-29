@@ -3,23 +3,24 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 @dataclass
-class XmlDefect():
+class XmlDefect:
     """
     A data class representing a defect parsed from XML annotations.
     
+    This class should only be instantiated using the from_tag() class method, 
+    not initialized directly.
+    
     Attributes:
-        bounding_box (tuple[int, int, int, int]): Coordinates of defect bounding box (xmin, xmax, ymin, ymax)
+        bounding_box (tuple[int, int, int, int]): Coordinates of defect bounding box 
+            in format (xmin, xmax, ymin, ymax)
         crack (bool): Whether defect contains a crack
-        spallation (bool): Whether defect contains spallation
-        efflorescence (bool): Whether defect contains efflorescence  
+        spallation (bool): Whether defect contains spallation damage
+        efflorescence (bool): Whether defect contains efflorescence (salt deposits)
         exposed_bars (bool): Whether defect contains exposed reinforcement bars
         corrosion_stain (bool): Whether defect contains corrosion staining
     
-    Args:
-        object_tag (bs4.element.Tag): XML tag <object> containing defect annotation data
-        
-    Raises:
-        ValueError: If provided tag is not an 'object' tag
+    Example:
+        >>> defect = XmlDefect.from_tag(object_tag)
     """
     bounding_box: tuple[int, int, int, int]
     crack: bool
@@ -28,20 +29,40 @@ class XmlDefect():
     exposed_bars: bool
     corrosion_stain: bool
     
-    def __post_init__(self, object_tag: Tag):
-        if object_tag.text is not "object":
-            raise ValueError(f"Tag passed to the method is not <object> tag.
-                              Recieved: <{object_tag.text}>")
+    @classmethod
+    def from_tag(cls, object_tag: Tag) -> 'XmlDefect':
+        """
+        Creates an XmlDefect instance from an XML object tag.
+
+        Args:
+            object_tag (bs4.element.Tag): XML tag <object> containing defect annotation data.
+                The tag must contain bndbox, Crack, Spallation, Efflorescence, ExposedBars,
+                and CorrosionStain child elements.
+
+        Returns:
+            XmlDefect: A new instance containing the parsed defect data.
+
+        Raises:
+            ValueError: If provided tag is not an 'object' tag.
+        """
+        if object_tag.name != "object":
+            raise ValueError(f"Tag passed to the method is not <object> tag. Received: <{object_tag.name}>")
         
         xmin: int = int(object_tag.bndbox.xmin.text)
         xmax: int = int(object_tag.bndbox.xmax.text)
         ymin: int = int(object_tag.bndbox.ymin.text)
         ymax: int = int(object_tag.bndbox.ymax.text)
-        self.bounding_box = (xmin, xmax, ymin, ymax)
         
-        self.crack=object_tag.crack.text,
-        self.spallation=object_tag.spallation.text,
-        self.efflorescence=object_tag.efflorescence.text,
-        self.exposed_bars=object_tag.exposed_bars.text,
-        self.joint_seperation=object_tag.joint_seperation.text
-        
+        return cls(
+            bounding_box = (xmin, xmax, ymin, ymax),
+            crack=bool(int(object_tag.Crack.text)),
+            spallation=bool(int(object_tag.Spallation.text)),
+            efflorescence=bool(int(object_tag.Efflorescence.text)),
+            exposed_bars=bool(int(object_tag.ExposedBars.text)),
+            corrosion_stain = bool(int(object_tag.CorrosionStain.text))
+        )
+    
+    
+@dataclass    
+class XmlParser:
+    pass
