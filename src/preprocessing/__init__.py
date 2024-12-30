@@ -1,1 +1,2 @@
-from XMLDefectsParser import XMLDefectsParser
+from .XMLDefectsParser import XMLDefectsParser
+
