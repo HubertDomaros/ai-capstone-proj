@@ -1,6 +1,7 @@
 import os
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+import pandas as pd
 
 class XmlDefect:
     """
@@ -18,7 +19,7 @@ class XmlDefect:
         corrosion_stain (bool): Whether defect contains corrosion staining
     """
 
-    def __init__(self, object_tag):
+    def __init__(self, object_tag, image_name):
         """
         Initializes an XmlDefect instance from an XML <object> tag.
 
@@ -33,6 +34,7 @@ class XmlDefect:
         if object_tag.name != "object":
             raise ValueError(f"Tag passed to the constructor is not <object> tag. Received: <{object_tag.name}>")
         
+        self._image_name = object_tag.
         self._bounding_box = (
             int(object_tag.bndbox.xmin.text),
             int(object_tag.bndbox.xmax.text),
@@ -68,6 +70,35 @@ class XmlDefect:
     @property
     def corrosion_stain(self):
         return self._corrosion_stain
+    
+    def to_series(self) -> pd.Series:
+        dc = {
+            'xmin' : self._bounding_box[0],
+            'xmax' : self._bounding_box[1],
+            'ymin' : self._bounding_box[2],
+            'ymax' : self._bounding_box[3],
+            'crack': self._crack,
+            'spallation': self._spallation,
+            'efflorescence': self._efflorescence,
+            'exposed_bars': self._exposed_bars,
+            'corrosion_stain': self._corrosion_stain
+        }
+        return pd.Series(dc)
+
+
+def defect_to_series(image_name: str, object_tag:Tag) -> pd.Series:
+    object_dict = {
+    'image': image_name,
+    "xmin": int(object_tag.bndbox.xmin.text),
+    "xmax": int(object_tag.bndbox.xmax.text),
+    "ymin": int(object_tag.bndbox.ymin.text),
+    "ymax": int(object_tag.bndbox.ymax.text),
+    "crack": int(object_tag.Crack.text),
+    "spallation": int(object_tag.Spallation.text),
+    "efflorescence": int(object_tag.Efflorescence.text),
+    "exposed_bars": int(object_tag.ExposedBars.text),
+    "corrosion_stain": int(object_tag.CorrosionStain.text)
+}
 
 
 class XmlDefects:
@@ -105,6 +136,10 @@ class XmlDefects:
 def parse_folder_with_xmls(folder_path: str):
     files = os.listdir(folder_path)
     parsed_folder: list[XmlDefects] = []
+
+    df = pd.DataFrame()
+    pd.columns
+
     
     for file in files:
         if file.endswith('.xml'):
@@ -113,5 +148,5 @@ def parse_folder_with_xmls(folder_path: str):
             parsed_folder.append(xml_defects)
     return parsed_folder
 
-parse_folder_with_xmls(r"D:\0-Code\PG\2_sem\0_Dyplom\ai-capstone-proj\examples")
+
 
