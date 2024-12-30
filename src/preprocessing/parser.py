@@ -34,7 +34,7 @@ class XmlDefect:
         if object_tag.name != "object":
             raise ValueError(f"Tag passed to the constructor is not <object> tag. Received: <{object_tag.name}>")
         
-        self._image_name = object_tag.
+        self._image_name = image_name
         self._bounding_box = (
             int(object_tag.bndbox.xmin.text),
             int(object_tag.bndbox.xmax.text),
@@ -86,19 +86,9 @@ class XmlDefect:
         return pd.Series(dc)
 
 
-def defect_to_series(image_name: str, object_tag:Tag) -> pd.Series:
-    object_dict = {
-    'image': image_name,
-    "xmin": int(object_tag.bndbox.xmin.text),
-    "xmax": int(object_tag.bndbox.xmax.text),
-    "ymin": int(object_tag.bndbox.ymin.text),
-    "ymax": int(object_tag.bndbox.ymax.text),
-    "crack": int(object_tag.Crack.text),
-    "spallation": int(object_tag.Spallation.text),
-    "efflorescence": int(object_tag.Efflorescence.text),
-    "exposed_bars": int(object_tag.ExposedBars.text),
-    "corrosion_stain": int(object_tag.CorrosionStain.text)
-}
+
+
+
 
 
 class XmlDefects:
@@ -133,12 +123,37 @@ class XmlDefects:
     def defects(self):
         return self._defects
 
-def parse_folder_with_xmls(folder_path: str):
+def parse_folder_with_xmls(folder_path: str) -> pd.DataFrame:
     files = os.listdir(folder_path)
     parsed_folder: list[XmlDefects] = []
 
-    df = pd.DataFrame()
-    pd.columns
+    df = pd.DataFrame(index=)
+    df.columns = ['image', 'xmin', 'xmax', 'ymin', 'ymax', 
+                  'crack', 'spalltation', 'efflorescence', 'exposed_bars', 'corrosion_stain']
+    
+    def defect_xml_to_series(image_name: str, object_tag:Tag) -> pd.Series:
+        object_dict = {
+        'image': image_name,
+        "xmin": int(object_tag.bndbox.xmin.text),
+        "xmax": int(object_tag.bndbox.xmax.text),
+        "ymin": int(object_tag.bndbox.ymin.text),
+        "ymax": int(object_tag.bndbox.ymax.text),
+        "crack": int(object_tag.Crack.text),
+        "spallation": int(object_tag.Spallation.text),
+        "efflorescence": int(object_tag.Efflorescence.text),
+        "exposed_bars": int(object_tag.ExposedBars.text),
+        "corrosion_stain": int(object_tag.CorrosionStain.text)
+        }
+    
+    def parse_xml(filepath:str):
+        with (filepath, 'r') as file:
+            xml = BeautifulSoup(filepath, 'xml')
+            image_name: str = xml.filename
+
+            for defect in xml.find_all('object'):
+                df.append(defect_xml_to_series(image_name, defect))
+
+        pass
 
     
     for file in files:
