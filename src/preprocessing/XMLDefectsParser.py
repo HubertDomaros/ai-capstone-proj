@@ -64,9 +64,3 @@ class XMLDefectsParser:
     @property
     def background_filepaths(self) -> list[str]:
         return self._background_list
-
-# Example usage:
-# parser = XMLDefectParser('path/to/xml/folder')
-# parser.parse_folder()
-# defects_df = parser.defect_df
-# background_files = parser.background_filepaths
