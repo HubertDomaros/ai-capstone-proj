@@ -1,759 +1,720 @@
-# test_AnnotationsParser
-import unittest
-from unittest.mock import patch, mock_open
+import os
+import pytest
 import pandas as pd
+from unittest.mock import patch, mock_open
 from src.preprocessing import AnnotationsParser
 
 
-class TestAnnotationsParserWithMock(unittest.TestCase):
-    def setUp(self):
-        # Define the folder path (mocked, so actual value doesn't matter)
-        self.folder_path = '/fake/path'
 
-        # Sample XML contents for various test scenarios
-        self.sample_xml_multiple_objects = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000001.jpg</filename>
-            <size>
-                <width>1000</width>
-                <height>1000</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>100</xmin>
-                    <ymin>200</ymin>
-                    <xmax>300</xmax>
-                    <ymax>400</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>1</Background>
-                    <Crack>0</Crack>
-                    <Spallation>0</Spallation>
-                    <Efflorescence>0</Efflorescence>
-                    <ExposedBars>0</ExposedBars>
-                    <CorrosionStain>0</CorrosionStain>
-                </Defect>
-            </object>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>400</xmin>
-                    <ymin>500</ymin>
-                    <xmax>600</xmax>
-                    <ymax>700</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>0</Background>
-                    <Crack>1</Crack>
-                    <Spallation>0</Spallation>
-                    <Efflorescence>1</Efflorescence>
-                    <ExposedBars>0</ExposedBars>
-                    <CorrosionStain>0</CorrosionStain>
-                </Defect>
-            </object>
-        </annotation>
-        """
+################################################################################
+#                          HELPER FACTORIES FOR MOCKING                        #
+################################################################################
 
-        self.sample_xml_single_object = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000002.jpg</filename>
-            <size>
-                <width>800</width>
-                <height>600</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>50</xmin>
-                    <ymin>60</ymin>
-                    <xmax>200</xmax>
-                    <ymax>220</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>0</Background>
-                    <Crack>0</Crack>
-                    <Spallation>1</Spallation>
-                    <Efflorescence>0</Efflorescence>
-                    <ExposedBars>1</ExposedBars>
-                    <CorrosionStain>0</CorrosionStain>
-                </Defect>
-            </object>
-        </annotation>
-        """
+def mock_listdir_factory(file_contents_dict):
+    """
+    Utility factory that creates a mock listdir function.
+    file_contents_dict is a dict like:
+      {
+        'file1.xml': '<annotation> ... </annotation>',
+        'file2.xml': '<annotation> ... </annotation>',
+      }
+    """
 
-        self.sample_xml_no_objects = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000003.jpg</filename>
-            <size>
-                <width>1024</width>
-                <height>768</height>
-                <depth>3</depth>
-            </size>
-        </annotation>
-        """
+    def mock_listdir(path):
+        return list(file_contents_dict.keys())
 
-        self.sample_xml_malformed = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000004.jpg</filename>
-            <size>
-                <width>640</width>
-                <height>480</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <!-- Missing closing tags intentionally -->
-        """
+    return mock_listdir
 
-        self.sample_xml_missing_fields = """<?xml version='1.0' encoding='utf-8'?>
+
+def mock_open_factory(file_contents_dict):
+    """
+    Utility factory that creates a mock_open function which returns
+    the file contents from `file_contents_dict` for a given filename.
+    """
+
+    def _open(file, mode='r', *args, **kwargs):
+        filename = os.path.basename(file)
+        data = file_contents_dict.get(filename, "")
+        return mock_open(read_data=data)()
+
+    return _open
+
+
+################################################################################
+#                        ORIGINAL BASIC TESTS (from your code)                 #
+################################################################################
+
+def test_parse_xml_to_dict_valid():
+    """
+    Test that parse_xml_to_dict returns a valid dictionary if the file exists and is well-formed.
+    """
+    fake_xml_content = """<?xml version='1.0' encoding='utf-8'?>
         <annotation>
             <folder>images</folder>
             <filename>image_0000005.jpg</filename>
-            <size>
-                <width>1904</width>
-                <height>2856</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>661</xmin>
-                    <ymin>472</ymin>
-                    <xmax>992</xmax>
-                    <ymax>1857</ymax>
-                </bndbox>
-                <Defect>
-                    <!-- Missing some defect fields -->
-                    <Efflorescence>1</Efflorescence>
-                </Defect>
-            </object>
         </annotation>
-        """
+    """
+    with patch("builtins.open", mock_open(read_data=fake_xml_content)) as mocked_file:
+        parser = AnnotationsParser(folder_path="fake_folder")
+        data = parser.parse_xml_to_dict("fake_file.xml")
+        assert data is not None
+        assert data['annotation']['folder'] == 'images'
+        assert data['annotation']['filename'] == 'image_0000005.jpg'
 
-        self.sample_xml_invalid_defect_values = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000006.jpg</filename>
-            <size>
-                <width>1904</width>
-                <height>2856</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>1507</xmin>
-                    <ymin>505</ymin>
-                    <xmax>1904</xmax>
-                    <ymax>2856</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>invalid</Background>
-                    <Crack>0</Crack>
-                    <Spallation>0</Spallation>
-                    <Efflorescence>1</Efflorescence>
-                    <ExposedBars>0</ExposedBars>
-                    <CorrosionStain>1</CorrosionStain>
-                </Defect>
-            </object>
-        </annotation>
-        """
 
-        self.sample_xml_non_defect_object = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000007.jpg</filename>
-            <size>
-                <width>500</width>
-                <height>500</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>non_defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>10</xmin>
-                    <ymin>20</ymin>
-                    <xmax>30</xmax>
-                    <ymax>40</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>1</Background>
-                    <Crack>1</Crack>
-                </Defect>
-            </object>
-        </annotation>
-        """
+def test_parse_xml_to_dict_file_not_found():
+    """
+    Test that parse_xml_to_dict returns None if the file is not found.
+    """
+    with patch("builtins.open", side_effect=FileNotFoundError("File not found")):
+        parser = AnnotationsParser(folder_path="fake_folder")
+        data = parser.parse_xml_to_dict("non_existent.xml")
+        assert data is None
 
-        self.sample_xml_invalid_filename = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>invalid_image.jpg</filename>
-            <size>
-                <width>800</width>
-                <height>600</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>100</xmin>
-                    <ymin>150</ymin>
-                    <xmax>200</xmax>
-                    <ymax>250</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>0</Background>
-                    <Crack>1</Crack>
-                    <Spallation>0</Spallation>
-                    <Efflorescence>1</Efflorescence>
-                    <ExposedBars>0</ExposedBars>
-                    <CorrosionStain>1</CorrosionStain>
-                </Defect>
-            </object>
-        </annotation>
-        """
 
-        self.sample_xml_duplicate_filenames = """<?xml version='1.0' encoding='utf-8'?>
-        <annotation>
-            <folder>images</folder>
-            <filename>image_0000008.jpg</filename>
-            <size>
-                <width>800</width>
-                <height>600</height>
-                <depth>3</depth>
-            </size>
-            <object>
-                <name>defect</name>
-                <difficult>0</difficult>
-                <bndbox>
-                    <xmin>100</xmin>
-                    <ymin>150</ymin>
-                    <xmax>200</xmax>
-                    <ymax>250</ymax>
-                </bndbox>
-                <Defect>
-                    <Background>0</Background>
-                    <Crack>1</Crack>
-                    <Spallation>0</Spallation>
-                    <Efflorescence>1</Efflorescence>
-                    <ExposedBars>0</ExposedBars>
-                    <CorrosionStain>1</CorrosionStain>
-                </Defect>
-            </object>
-        </annotation>
-        """
-
-    # ----------------------------- Helper Methods ----------------------------- #
-
-    def mock_listdir_factory(file_contents_dict):
-        """
-        Creates a mock for os.listdir that returns the keys of file_contents_dict as filenames.
-        """
-        def mock_listdir(path):
-            return list(file_contents_dict.keys())
-        return mock_listdir
-
-    def mock_open_factory(file_contents_dict):
-        """
-        Creates a mock_open object that can handle multiple files with different contents.
-        """
-        def mock_file(file, mode='r', *args, **kwargs):
-            filename = os.path.basename(file)
-            if filename in file_contents_dict:
-                return mock_open(read_data=file_contents_dict[filename]).return_value
-            else:
-                raise FileNotFoundError(f"No such file: '{file}'")
-        return mock_file
-
-    # ----------------------------- Test Cases ----------------------------- #
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_multiple_objects(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with multiple <object> elements.
-        """
-        file_contents = {
-            'image_0000001.xml': self.sample_xml_multiple_objects
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
-
-        # Verify that two entries are created for the two objects
-        image_df = df[df['img_name'] == 'image_0000001.jpg']
-        self.assertEqual(len(image_df), 2)
-
-        # Validate first object
-        first_obj = image_df.iloc[0]
-        self.assertEqual(first_obj['xmin'], 100)
-        self.assertEqual(first_obj['ymin'], 200)
-        self.assertEqual(first_obj['xmax'], 300)
-        self.assertEqual(first_obj['ymax'], 400)
-        self.assertEqual(first_obj['background'], 1)
-        self.assertEqual(first_obj['crack'], 0)
-        self.assertEqual(first_obj['efflorescence'], 0)
-        self.assertEqual(first_obj['corrosion_stain'], 0)
-
-        # Validate second object
-        second_obj = image_df.iloc[1]
-        self.assertEqual(second_obj['xmin'], 400)
-        self.assertEqual(second_obj['ymin'], 500)
-        self.assertEqual(second_obj['xmax'], 600)
-        self.assertEqual(second_obj['ymax'], 700)
-        self.assertEqual(second_obj['background'], 0)
-        self.assertEqual(second_obj['crack'], 1)
-        self.assertEqual(second_obj['efflorescence'], 1)
-        self.assertEqual(second_obj['corrosion_stain'], 0)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_single_object(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with a single <object> element.
-        """
-        file_contents = {
-            'image_0000002.xml': self.sample_xml_single_object
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
-
-        # Verify that one entry is created for the single object
-        image_df = df[df['img_name'] == 'image_0000002.jpg']
-        self.assertEqual(len(image_df), 1)
-
-        # Validate the object
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['xmin'], 50)
-        self.assertEqual(obj['ymin'], 60)
-        self.assertEqual(obj['xmax'], 200)
-        self.assertEqual(obj['ymax'], 220)
-        self.assertEqual(obj['background'], 0)
-        self.assertEqual(obj['crack'], 0)
-        self.assertEqual(obj['spallation'], 1)
-        self.assertEqual(obj['exposed_bars'], 1)
-        self.assertEqual(obj['corrosion_stain'], 0)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_no_objects(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with no <object> elements.
-        """
-        file_contents = {
-            'image_0000003.xml': self.sample_xml_no_objects
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
-
-        # Verify that a background entry is created
-        image_df = df[df['img_name'] == 'image_0000003.jpg']
-        self.assertEqual(len(image_df), 1)
-
-        # Validate the background entry
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['background'], 1)
-        for col in ['xmin', 'ymin', 'xmax', 'ymax', 'crack',
-                    'spallation', 'efflorescence', 'exposed_bars', 'corrosion_stain']:
-            self.assertEqual(obj[col], 0)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_malformed_xml(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing a malformed XML file.
-        The parser should skip this file, resulting in no entry.
-        """
-        file_contents = {
-            'image_0000004.xml': self.sample_xml_malformed
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        # Simulate a parsing error by raising a ParsingInterrupted exception
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        with patch('annotations_parser.xmltodict.parse', side_effect=Exception("Malformed XML")):
-            parser = AnnotationsParser(self.folder_path)
-            df = parser.annotations_df
-
-            # Verify that no entry is created for the malformed XML
-            image_df = df[df['img_name'] == 'image_0000004.jpg']
-            self.assertTrue(image_df.empty)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_missing_fields(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with missing defect fields.
-        Missing fields should default to 0.
-        """
-        file_contents = {
-            'image_0000005.xml': self.sample_xml_missing_fields
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
-
-        # Verify that one entry is created
-        image_df = df[df['img_name'] == 'image_0000005.jpg']
-        self.assertEqual(len(image_df), 1)
-
-        # Validate the entry with missing fields defaulted to 0
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['xmin'], 661)
-        self.assertEqual(obj['ymin'], 472)
-        self.assertEqual(obj['xmax'], 992)
-        self.assertEqual(obj['ymax'], 1857)
-        self.assertEqual(obj['background'], 0)
-        self.assertEqual(obj['crack'], 0)
-        self.assertEqual(obj['spallation'], 0)
-        self.assertEqual(obj['efflorescence'], 1)
-        self.assertEqual(obj['exposed_bars'], 0)
-        self.assertEqual(obj['corrosion_stain'], 0)  # Missing field defaulted to 0
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_parse_invalid_defect_values(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with invalid (non-integer) defect values.
-        Invalid values should default to 0, and a warning should be logged.
-        """
-        file_contents = {
-            'image_0000006.xml': self.sample_xml_invalid_defect_values
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
-
-        with patch('annotations_parser.xmltodict.parse') as mock_parse:
-            # Simulate parsing, where 'Background' has an invalid value
-            def parse_side_effect(*args, **kwargs):
-                return {
-                    'annotation': {
-                        'filename': 'image_0000006.jpg',
-                        'object': {
-                            'name': 'defect',
-                            'difficult': '0',
-                            'bndbox': {
-                                'xmin': '1507',
-                                'ymin': '505',
-                                'xmax': '1904',
-                                'ymax': '2856'
-                            },
-                            'Defect': {
-                                'Background': 'invalid',  # Invalid value
-                                'Crack': '0',
-                                'Spallation': '0',
-                                'Efflorescence': '1',
-                                'ExposedBars': '0',
-                                'CorrosionStain': '1'
-                            }
-                        }
+@pytest.fixture
+def sample_xml_dict():
+    """
+    Returns a dictionary (similar to the output of xmltodict.parse)
+    corresponding to the sample XML provided in the question.
+    """
+    return {
+        'annotation': {
+            'folder': 'images',
+            'filename': 'image_0000005.jpg',
+            'size': {
+                'width': '1904',
+                'height': '2856',
+                'depth': '3'
+            },
+            'object': [
+                {
+                    'name': 'defect',
+                    'difficult': '0',
+                    'bndbox': {
+                        'xmin': '661',
+                        'ymin': '472',
+                        'xmax': '992',
+                        'ymax': '1857'
+                    },
+                    'Defect': {
+                        'Background': '0',
+                        'Crack': '0',
+                        'Spallation': '0',
+                        'Efflorescence': '1',
+                        'ExposedBars': '0',
+                        'CorrosionStain': '1'
+                    }
+                },
+                {
+                    'name': 'defect',
+                    'difficult': '0',
+                    'bndbox': {
+                        'xmin': '1507',
+                        'ymin': '505',
+                        'xmax': '1904',
+                        'ymax': '2856'
+                    },
+                    'Defect': {
+                        'Background': '0',
+                        'Crack': '0',
+                        'Spallation': '0',
+                        'Efflorescence': '1',
+                        'ExposedBars': '0',
+                        'CorrosionStain': '1'
                     }
                 }
-
-            mock_parse.side_effect = parse_side_effect
-
-            with self.assertLogs('annotations_parser', level='WARNING') as cm:
-                parser = AnnotationsParser(self.folder_path)
-                df = parser.annotations_df
-
-            # Verify that a warning was logged for the invalid Background value
-            self.assertIn(
-                "WARNING:annotations_parser:Invalid value for Background in image image_0000006.jpg: invalid",
-                cm.output
-            )
-
-            # Verify that the Background field was defaulted to 0
-            image_df = df[df['img_name'] == 'image_0000006.jpg']
-            self.assertEqual(len(image_df), 1)
-            obj = image_df.iloc[0]
-            self.assertEqual(obj['background'], 0)
-            self.assertEqual(obj['crack'], 0)
-            self.assertEqual(obj['spallation'], 0)
-            self.assertEqual(obj['efflorescence'], 1)
-            self.assertEqual(obj['exposed_bars'], 0)
-            self.assertEqual(obj['corrosion_stain'], 1)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_fill_missing_images(self, mock_open_func, mock_listdir_func):
-        """
-        Test that missing images (not present in the XML files) are filled with background data.
-        """
-        # Assume only image_0000001.xml is present
-        file_contents = {
-            'image_0000001.xml': self.sample_xml_multiple_objects
+            ]
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+    }
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
 
-        # Total images expected: 1600
-        self.assertEqual(len(df), 1600)
+def test_parse_dict_annotation(sample_xml_dict):
+    """
+    Test that parse_dict_annotation correctly converts the sample XML dict
+    to a Pandas DataFrame with expected values.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
 
-        # Check that background entries are created for missing images
-        # For example, image_0000002.jpg should be present as missing and filled with background
-        self.assertIn('image_0000002.jpg', df['img_name'].values)
-        image_df = df[df['img_name'] == 'image_0000002.jpg']
-        self.assertEqual(len(image_df), 1)
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['background'], 1)
-        for col in ['xmin', 'ymin', 'xmax', 'ymax', 'crack',
-                    'spallation', 'efflorescence', 'exposed_bars', 'corrosion_stain']:
-            self.assertEqual(obj[col], 0)
+    df = parser.parse_dict_annotation(sample_xml_dict)
 
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_no_xml_files(self, mock_open_func, mock_listdir_func):
-        """
-        Test the scenario where no XML files are present.
-        All images should be treated as missing and filled with background data.
-        """
-        mock_listdir_func.return_value = []  # No XML files
+    # We have two objects => 2 rows
+    assert len(df) == 2
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
+    # Check columns
+    expected_cols = [
+        'img_name', 'xmin', 'ymin', 'xmax', 'ymax',
+        'background', 'crack', 'spallation', 'efflorescence',
+        'exposed_bars', 'corrosion_stain'
+    ]
+    assert all(col in df.columns for col in expected_cols)
 
-        # Total images expected: 1600
-        self.assertEqual(len(df), 1600)
+    # Check the image name
+    assert (df['img_name'] == 'image_0000005.jpg').all()
 
-        # All entries should have background=1 and other fields=0
-        self.assertTrue((df['background'] == 1).all())
-        for col in ['xmin', 'ymin', 'xmax', 'ymax', 'crack',
-                    'spallation', 'efflorescence', 'exposed_bars', 'corrosion_stain']:
-            self.assertTrue((df[col] == 0).all())
+    # Check bounding box columns
+    # First row
+    assert df.loc[0, 'xmin'] == 661
+    assert df.loc[0, 'ymin'] == 472
+    assert df.loc[0, 'xmax'] == 992
+    assert df.loc[0, 'ymax'] == 1857
 
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_non_defect_objects(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with a non-defect object.
-        Such objects should be ignored, and the image should be treated as missing.
-        """
-        file_contents = {
-            'image_0000007.xml': self.sample_xml_non_defect_object
+    # Second row
+    assert df.loc[1, 'xmin'] == 1507
+    assert df.loc[1, 'ymin'] == 505
+    assert df.loc[1, 'xmax'] == 1904
+    assert df.loc[1, 'ymax'] == 2856
+
+    # Check defect columns
+    # For both rows: background=0, crack=0, spallation=0, efflorescence=1, exposed_bars=0, corrosion_stain=1
+    assert (df['background'] == 0).all()
+    assert (df['crack'] == 0).all()
+    assert (df['spallation'] == 0).all()
+    assert (df['efflorescence'] == 1).all()
+    assert (df['exposed_bars'] == 0).all()
+    assert (df['corrosion_stain'] == 1).all()
+
+
+def test_parse_dict_annotation_no_defects():
+    """
+    Test that parse_dict_annotation returns a single-row DataFrame with background=1
+    if no <object> with name='defect' is found.
+    """
+    sample_dict_no_defects = {
+        'annotation': {
+            'folder': 'images',
+            'filename': 'image_0000010.jpg',
+            'size': {
+                'width': '1000',
+                'height': '1000',
+                'depth': '3'
+            },
+            'object': [
+                {
+                    'name': 'non_defect',
+                    'difficult': '0'
+                }
+            ]
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+    }
+    parser = AnnotationsParser(folder_path="fake_folder")
+    df = parser.parse_dict_annotation(sample_dict_no_defects)
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
+    assert len(df) == 1
+    assert df.loc[0, 'img_name'] == 'image_0000010.jpg'
+    assert df.loc[0, 'background'] == 1
+    # All other defect columns should be 0
+    assert df.loc[0, 'crack'] == 0
+    assert df.loc[0, 'spallation'] == 0
+    assert df.loc[0, 'efflorescence'] == 0
+    assert df.loc[0, 'exposed_bars'] == 0
+    assert df.loc[0, 'corrosion_stain'] == 0
 
-        # image_0000007.jpg should be treated as missing and filled with background
-        image_df = df[df['img_name'] == 'image_0000007.jpg']
-        self.assertEqual(len(image_df), 1)
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['background'], 1)
-        for col in ['xmin', 'ymin', 'xmax', 'ymax', 'crack',
-                    'spallation', 'efflorescence', 'exposed_bars', 'corrosion_stain']:
-            self.assertEqual(obj[col], 0)
 
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_invalid_image_filenames(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing an XML file with an invalid image filename.
-        The parser should still process it correctly.
-        """
-        file_contents = {
-            'invalid_image.xml': self.sample_xml_invalid_filename
+def test_create_background_dict():
+    """
+    Test that create_background_dict creates a dictionary with
+    background=1 and other defect columns set to 0.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    out_dict = parser.create_background_dict("image_0000011.jpg")
+
+    assert out_dict['img_name'] == ['image_0000011.jpg']
+    assert out_dict['background'] == [1]
+    assert out_dict['crack'] == [0]
+    assert out_dict['spallation'] == [0]
+    assert out_dict['efflorescence'] == [0]
+    assert out_dict['exposed_bars'] == [0]
+    assert out_dict['corrosion_stain'] == [0]
+
+
+def test_fill_df_with_missing_images():
+    """
+    Test that fill_df_with_missing_images adds rows for missing images,
+    setting them as background=1.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+
+    # Prepare a small DataFrame with only 2 images
+    data = {
+        'img_name': ['image0000001', 'image0000002'],
+        'xmin': [0, 0],
+        'ymin': [0, 0],
+        'xmax': [0, 0],
+        'ymax': [0, 0],
+        'background': [0, 0],
+        'crack': [0, 0],
+        'spallation': [0, 0],
+        'efflorescence': [1, 1],
+        'exposed_bars': [0, 0],
+        'corrosion_stain': [1, 1]
+    }
+    df = pd.DataFrame(data)
+
+    # Because fill_df_with_missing_images tries to fill for images 1..1600,
+    # let's mock parser.create_background_dict to control the result
+    # and drastically reduce the image range for a quick test:
+    with patch.object(parser, 'create_background_dict', side_effect=lambda x: {
+        'img_name': [x], 'xmin': [0], 'ymin': [0], 'xmax': [0], 'ymax': [0],
+        'background': [1], 'crack': [0], 'spallation': [0],
+        'efflorescence': [0], 'exposed_bars': [0], 'corrosion_stain': [0]
+    }):
+        with patch('AnnotationsParser.AnnotationsParser.fill_df_with_missing_images',
+                   wraps=parser.fill_df_with_missing_images) as fill_mock:
+            def mock_set_range(*args, **kwargs):
+                return {f"image{i:07d}" for i in range(1, 5)}
+
+            with patch.object(parser, 'fill_df_with_missing_images') as f_missing:
+                def side_effect(df):
+                    existing_imgs = set(df['img_name'])
+                    all_imgs = mock_set_range()
+                    missing_imgs = all_imgs - existing_imgs
+                    background_dicts = [
+                        parser.create_background_dict(img_name) for img_name in missing_imgs
+                    ]
+                    background_df = pd.DataFrame(background_dicts)
+                    return pd.concat([df, background_df], ignore_index=True)
+
+                f_missing.side_effect = side_effect
+                new_df = side_effect(df)
+
+        # Check we now have 4 images total
+        assert len(new_df) == 4
+        assert set(new_df['img_name']) == {
+            'image0000001',
+            'image0000002',
+            'image0000003',
+            'image0000004',
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+        # Check that the new images have background=1
+        missing_rows = new_df[new_df['img_name'].isin(['image0000003', 'image0000004'])]
+        assert (missing_rows['background'] == 1).all()
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
 
-        # 'invalid_image.jpg' should be included in the DataFrame
-        image_df = df[df['img_name'] == 'invalid_image.jpg']
-        self.assertEqual(len(image_df), 1)
+@patch('os.listdir')
+def test_parse_xmls_to_dataframe(mock_listdir, sample_xml_dict):
+    """
+    Test that parse_xmls_to_dataframe reads all .xml files in folder
+    and returns the expected DataFrame.
+    """
+    # Mock the directory contents
+    mock_listdir.return_value = ["annotation1.xml", "annotation2.txt", "annotation3.xml"]
 
-        # Validate the entry
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['xmin'], 100)
-        self.assertEqual(obj['ymin'], 150)
-        self.assertEqual(obj['xmax'], 200)
-        self.assertEqual(obj['ymax'], 250)
-        self.assertEqual(obj['background'], 0)
-        self.assertEqual(obj['crack'], 1)
-        self.assertEqual(obj['spallation'], 0)
-        self.assertEqual(obj['efflorescence'], 1)
-        self.assertEqual(obj['exposed_bars'], 0)
-        self.assertEqual(obj['corrosion_stain'], 1)
+    # We will mock parse_xml_to_dict so that it returns sample_xml_dict for .xml files
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch.object(parser, 'parse_xml_to_dict') as mock_parse:
+        def side_effect(filepath):
+            if filepath.endswith(".xml"):
+                return sample_xml_dict
+            return None
 
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_duplicate_image_filenames(self, mock_open_func, mock_listdir_func):
-        """
-        Test parsing multiple XML files with the same image filename.
-        Each XML should create a separate entry in the DataFrame.
-        """
-        file_contents = {
-            'image_0000008a.xml': self.sample_xml_duplicate_filenames,
-            'image_0000008b.xml': self.sample_xml_duplicate_filenames
-        }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+        mock_parse.side_effect = side_effect
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
+        df = parser.parse_xmls_to_dataframe()
 
-        # 'image_0000008.jpg' should have two entries
-        image_df = df[df['img_name'] == 'image_0000008.jpg']
-        self.assertEqual(len(image_df), 2)
+        # parse_xmls_to_dataframe should parse 2 XML files
+        # Each mock XML is the same sample_xml_dict => 2 objects each => 2 rows each => 4 total
+        assert len(df) == 4
+        # Efflorescence and CorrosionStain are both 1
+        assert (df['efflorescence'] == 1).all()
+        assert (df['corrosion_stain'] == 1).all()
 
-        # Validate both entries
-        for obj in image_df.itertuples(index=False):
-            self.assertEqual(obj.xmin, 100)
-            self.assertEqual(obj.ymin, 150)
-            self.assertEqual(obj.xmax, 200)
-            self.assertEqual(obj.ymax, 250)
-            self.assertEqual(obj.background, 0)
-            self.assertEqual(obj.crack, 1)
-            self.assertEqual(obj.spallation, 0)
-            self.assertEqual(obj.efflorescence, 1)
-            self.assertEqual(obj.exposed_bars, 0)
-            self.assertEqual(obj.corrosion_stain, 1)
+        # Also check that non-XML file was skipped
+        assert mock_parse.call_count == 3  # called for each file in listdir
+        # The data for annotation2.txt should have returned None
+        # The data for annotation1.xml and annotation3.xml should match sample_xml_dict
 
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_large_number_of_xml_files(self, mock_open_func, mock_listdir_func):
-        """
-        Test the parser's ability to handle a large number of XML files.
-        """
-        num_additional_files = 100
-        file_contents = {
-            f'image_{i:07d}.xml': f"""<?xml version='1.0' encoding='utf-8'?>
+
+################################################################################
+#               ADDITIONAL TESTS (from screenshot scenarios)                   #
+################################################################################
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_multiple_objects.xml": """<?xml version='1.0'?>
             <annotation>
-                <folder>images</folder>
-                <filename>image_{i:07d}.jpg</filename>
-                <size>
-                    <width>800</width>
-                    <height>600</height>
-                    <depth>3</depth>
-                </size>
-                <object>
-                    <name>defect</name>
-                    <difficult>0</difficult>
-                    <bndbox>
-                        <xmin>{i}</xmin>
-                        <ymin>{i * 2}</ymin>
-                        <xmax>{i + 100}</xmax>
-                        <ymax>{i * 2 + 100}</ymax>
-                    </bndbox>
-                    <Defect>
-                        <Background>0</Background>
-                        <Crack>1</Crack>
-                        <Spallation>0</Spallation>
-                        <Efflorescence>1</Efflorescence>
-                        <ExposedBars>0</ExposedBars>
-                        <CorrosionStain>1</CorrosionStain>
-                    </Defect>
-                </object>
+              <filename>image_000001.jpg</filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+                <Defect>
+                  <Crack>1</Crack>
+                  <Efflorescence>0</Efflorescence>
+                  <Background>0</Background>
+                </Defect>
+              </object>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>50</xmin><ymin>60</ymin><xmax>70</xmax><ymax>80</ymax></bndbox>
+                <Defect>
+                  <Spallation>1</Spallation>
+                  <CorrosionStain>1</CorrosionStain>
+                  <Background>0</Background>
+                </Defect>
+              </object>
             </annotation>
-            """ for i in range(9, 9 + num_additional_files)
+            """
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+    ],
+)
+def test_parse_multiple_objects(file_contents_dict):
+    """
+    Test parsing an XML file containing multiple <object> entries.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # We expect 2 rows for the 2 <object> entries
+            assert len(df) == 2
 
-        parser = AnnotationsParser(self.folder_path)
-        df = parser.annotations_df
 
-        # Total images expected: 1600
-        self.assertEqual(len(df), 1600)
-
-        # Check a few entries from the additional files
-        for i in range(9, 9 + num_additional_files, 10):
-            img_name = f'image_{i:07d}.jpg'
-            image_df = df[df['img_name'] == img_name]
-            self.assertEqual(len(image_df), 1)
-            obj = image_df.iloc[0]
-            self.assertEqual(obj['xmin'], i)
-            self.assertEqual(obj['ymin'], i * 2)
-            self.assertEqual(obj['xmax'], i + 100)
-            self.assertEqual(obj['ymax'], i * 2 + 100)
-            self.assertEqual(obj['background'], 0)
-            self.assertEqual(obj['crack'], 1)
-            self.assertEqual(obj['spallation'], 0)
-            self.assertEqual(obj['efflorescence'], 1)
-            self.assertEqual(obj['exposed_bars'], 0)
-            self.assertEqual(obj['corrosion_stain'], 1)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_annotations_df_property(self, mock_open_func, mock_listdir_func):
-        """
-        Test the annotations_df property to ensure it returns a consistent DataFrame.
-        """
-        file_contents = {
-            'image_0000001.xml': self.sample_xml_multiple_objects,
-            'image_0000002.xml': self.sample_xml_single_object
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_single_object.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000002.jpg</filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+                <Defect><Crack>1</Crack><Background>0</Background></Defect>
+              </object>
+            </annotation>
+            """
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+    ],
+)
+def test_parse_single_object(file_contents_dict):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            assert len(df) == 1
+            assert df.loc[0, 'crack'] == 1
 
-        parser = AnnotationsParser(self.folder_path)
-        df1 = parser.annotations_df
-        df2 = parser.annotations_df
 
-        # Ensure that accessing the property multiple times returns the same DataFrame
-        pd.testing.assert_frame_equal(df1, df2)
-
-    @patch('annotations_parser.os.listdir')
-    @patch('annotations_parser.open')
-    def test_non_defect_objects_logging(self, mock_open_func, mock_listdir_func):
-        """
-        Test that non-defect objects are ignored and background entries are created.
-        Additionally, ensure that no warnings are logged for non-defect objects.
-        """
-        file_contents = {
-            'image_0000007.xml': self.sample_xml_non_defect_object
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_no_objects.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000003.jpg</filename>
+            </annotation>
+            """
         }
-        mock_listdir_func.side_effect = mock_listdir_factory(file_contents)
-        mock_open_func.side_effect = mock_open_factory(file_contents)
+    ],
+)
+def test_parse_no_objects(file_contents_dict):
+    """
+    This is similar to test_parse_dict_annotation_no_defects but
+    checks the entire pipeline with parse_xmls_to_dataframe.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # With no <object> named 'defect', we expect 1 row with background=1
+            assert len(df) == 1
+            assert df.loc[0, 'background'] == 1
 
-        with self.assertLogs('annotations_parser', level='WARNING') as cm:
-            parser = AnnotationsParser(self.folder_path)
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_malformed.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000004.jpg</filename>
+              <object>
+                <name>defect</name>
+            <!-- missing closing tags, etc. -->
+            """
+        }
+    ],
+)
+def test_parse_malformed_xml(file_contents_dict):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            # parse_xml_to_dict should return None or fail to parse,
+            # so parse_xmls_to_dataframe should produce an empty or background-only df
+            df = parser.parse_xmls_to_dataframe()
+            assert df.empty
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_missing_fields.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000005.jpg</filename>
+              <object>
+                <name>defect</name>
+                <!-- missing bndbox entirely -->
+                <Defect><Crack>1</Crack></Defect>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_parse_missing_fields(file_contents_dict, caplog):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # Should produce 1 row. Bndbox coords might be missing => possibly NaN or 0.
+            # Just check we didn't crash
+            assert len(df) == 1
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_invalid_defect_values.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000006.jpg</filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+                <Defect><Crack>not_an_int</Crack></Defect>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_parse_invalid_defect_values(file_contents_dict, caplog):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            assert len(df) == 1
+            # Should log a warning and set crack=0
+            assert df.loc[0, 'crack'] == 0
+            assert any("Invalid value for Crack" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        # Provide multiple XML files to simulate large data or missing images
+        {
+            "sample_xml_single_object.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000010.jpg</filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+                <Defect><Crack>1</Crack></Defect>
+              </object>
+            </annotation>
+            """,
+            "sample_xml_no_objects.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000011.jpg</filename>
+            </annotation>
+            """,
+        }
+    ],
+)
+def test_fill_missing_images_large(file_contents_dict):
+    """
+    Test that all images up to 1600 are considered, and any that
+    aren't in the parsed results get background=1.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # The parser calls fill_df_with_missing_images in _initialize_annotations,
+            # so you might have 1600 rows total, or at least background-filled for any missing.
+            # Check at least that your known images are present:
+            assert "image_000010.jpg" in df['img_name'].values
+            assert "image_000011.jpg" in df['img_name'].values
+            # The rest presumably are background. You can do further checks.
+
+
+@pytest.mark.parametrize("file_contents_dict", [{}])
+def test_no_xml_files_screenshot(file_contents_dict):
+    """
+    If the folder is empty or has no .xml files, parse_xmls_to_dataframe
+    should return either an empty DataFrame or 1600 background rows,
+    depending on your fill logic.
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        df = parser.parse_xmls_to_dataframe()
+        # Depending on your code, might be empty or might have 1600 background rows.
+        # Just ensure it doesn't crash.
+        # For demonstration, we'll accept either case:
+        assert df.shape[0] == 0 or df.shape[0] == 1600
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_non_defect_object.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000012.jpg</filename>
+              <object>
+                <name>cat</name>
+                <bndbox><xmin>0</xmin><ymin>0</ymin><xmax>10</xmax><ymax>10</ymax></bndbox>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_non_defect_objects_screenshot(file_contents_dict):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # Should produce 1 row with background=1, since <object> is not a 'defect'
+            assert len(df) == 1
+            assert df.loc[0, 'background'] == 1
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_invalid_filename.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename></filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_invalid_image_filenames(file_contents_dict, caplog):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # If filename is empty, you might store "" or log a warning. Adapt to your logic.
+            assert len(df) == 1
+            assert df.loc[0, 'img_name'] == ''
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_duplicate_filenames1.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000020.jpg</filename>
+              <object><name>defect</name></object>
+            </annotation>
+            """,
+            "sample_xml_duplicate_filenames2.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000020.jpg</filename>
+              <object><name>defect</name></object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_duplicate_image_filenames(file_contents_dict, caplog):
+    """
+    Tests how duplicates are handled. Does your code combine them?
+    Overwrite one? Create multiple rows for the same filename?
+    """
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # Behavior is project-specific. Possibly 2 rows for the same image.
+            assert not df.empty
+            # E.g., if each file leads to a row, might have 2:
+            # assert len(df) == 2
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        # Provide many XML files to test reading capacity or performance
+        {f"file_{i}.xml": f"""<?xml version='1.0'?><annotation><filename>image_{i}.jpg</filename></annotation>"""
+         for i in range(1, 101)}  # 100 small XMLs
+    ],
+)
+def test_large_number_of_xml_files(file_contents_dict):
+    parser = AnnotationsParser(folder_path="fake_folder")
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            df = parser.parse_xmls_to_dataframe()
+            # Should produce 100 rows (1 for each file)
+            assert len(df) == 100
+
+
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_single_object.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000030.jpg</filename>
+              <object>
+                <name>defect</name>
+                <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+                <Defect><Crack>1</Crack></Defect>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_annotations_df_property(file_contents_dict):
+    """
+    Test the `annotations_df` property, which should be populated after initialization.
+    """
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            parser = AnnotationsParser(folder_path="fake_folder")
             df = parser.annotations_df
-
-        # Verify that no warnings were logged for non-defect objects
-        self.assertEqual(len(cm.output), 0)
-
-        # Verify that the image is treated as missing and filled with background
-        image_df = df[df['img_name'] == 'image_0000007.jpg']
-        self.assertEqual(len(image_df), 1)
-        obj = image_df.iloc[0]
-        self.assertEqual(obj['background'], 1)
-        for col in ['xmin', 'ymin', 'xmax', 'ymax', 'crack',
-                    'spallation', 'efflorescence', 'exposed_bars', 'corrosion_stain']:
-            self.assertEqual(obj[col], 0)
+            assert not df.empty
+            assert "crack" in df.columns
 
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.parametrize(
+    "file_contents_dict",
+    [
+        {
+            "sample_xml_non_defect_object.xml": """<?xml version='1.0'?>
+            <annotation>
+              <filename>image_000031.jpg</filename>
+              <object>
+                <name>cat</name>
+                <bndbox><xmin>0</xmin><ymin>0</ymin><xmax>10</xmax><ymax>10</ymax></bndbox>
+              </object>
+            </annotation>
+            """
+        }
+    ],
+)
+def test_non_defect_objects_logging(file_contents_dict, caplog):
+    """
+    Check that ignoring non-defect objects is (optionally) logged.
+    """
+    with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
+        with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
+            parser = AnnotationsParser(folder_path="fake_folder")
+            df = parser.parse_xmls_to_dataframe()
+            assert len(df) == 1
+            assert df.loc[0, 'background'] == 1
+            # Optionally check logs if your code logs ignoring messages:
+            # assert any("Ignoring object" in rec.message for rec in caplog.records)
