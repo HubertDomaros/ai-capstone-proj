@@ -1,0 +1,49 @@
+{
+  "annotation": {
+    "folder": "images",
+    "filename": "image_0000005.jpg",
+    "size": {
+      "width": "1904",
+      "height": "2856",
+      "depth": "3"
+    },
+    "object": [
+      {
+        "name": "defect",
+        "difficult": "0",
+        "bndbox": {
+          "xmin": "661",
+          "ymin": "472",
+          "xmax": "992",
+          "ymax": "1857"
+        },
+        "Defect": {
+          "Background": "0",
+          "Crack": "0",
+          "Spallation": "0",
+          "Efflorescence": "1",
+          "ExposedBars": "0",
+          "CorrosionStain": "1"
+        }
+      },
+      {
+        "name": "defect",
+        "difficult": "0",
+        "bndbox": {
+          "xmin": "1507",
+          "ymin": "505",
+          "xmax": "1904",
+          "ymax": "2856"
+        },
+        "Defect": {
+          "Background": "0",
+          "Crack": "0",
+          "Spallation": "0",
+          "Efflorescence": "1",
+          "ExposedBars": "0",
+          "CorrosionStain": "1"
+        }
+      }
+    ]
+  }
+}
