@@ -1,14 +1,13 @@
 import json
-from math import e
 import os
-import shutil
 
 import pandas as pd
 import numpy as np
 from skmultilearn.model_selection import iterative_train_test_split
 
-def train_test_val_image_split(input_df: pd.DataFrame, 
-                               test_size: float = 0.2, 
+
+def train_test_val_image_split(input_df: pd.DataFrame,
+                               test_size: float = 0.2,
                                val_size: float = 0.1) -> dict[str, np.ndarray]:
     """
     Splits the input DataFrame into training, testing, and validation sets
@@ -27,24 +26,33 @@ def train_test_val_image_split(input_df: pd.DataFrame,
         A dictionary with keys 'train', 'test', and 'val',
         each containing a NumPy array of image file names for the respective dataset.
     """
+    if input_df.empty:
+        raise ValueError('Input DataFrame is empty')
 
-    
+    if not (0 < test_size < 1) or not (0 <= val_size < 1):
+        raise ValueError("test_size and val_size must be between 0 and 1.")
+
+    if (test_size + val_size) >= 1:
+        raise ValueError("The sum of test_size and val_size must be less than 1.")
+
     df = input_df.drop(['xmin', 'xmax', 'ymin', 'ymax'], axis=1)
     df = df.groupby('image', as_index=False).max()
-    
+
     X: np.ndarray = df['image'].to_numpy()
     y: np.ndarray = df.drop('image', axis=1).to_numpy()
 
     X_train, _, X_rem, y_rem = iterative_train_test_split(X, y, test_size=(test_size + val_size))
 
-    X_test, _, X_val, _ = iterative_train_test_split(X_rem, y_rem, 
+    X_test, _, X_val, _ = iterative_train_test_split(X_rem, y_rem,
                                                      test_size=(val_size / (test_size + val_size)))
 
-    return {
+    out_dict = {
         'train': X_train,
         'test': X_test,
-        'val': X_val,       
+        'val': X_val,
     }
+
+    return out_dict
 
 
 def dict_to_json(input_dict: dict[str, np.ndarray], out_filepath: str) -> None:
@@ -58,8 +66,12 @@ def dict_to_json(input_dict: dict[str, np.ndarray], out_filepath: str) -> None:
     out_filepath : str
         The path to the output JSON file.
     """
+    # Convert NumPy arrays to lists
+    serializable_dict = {key: value.tolist() for key, value in input_dict.items()}
+
     with open(out_filepath, 'w') as file:
-        json.dump(input_dict, file)
+        json.dump(serializable_dict, file, indent=4)
+
 
 
 def put_splited_images_in_folders(json_filepath: str, input_dir: str, out_dir: str) -> None:
@@ -69,16 +81,16 @@ def put_splited_images_in_folders(json_filepath: str, input_dir: str, out_dir: s
 
     for dataset_name in datasets:
         dataset_dir = os.path.join(out_dir, dataset_name)
-        if os.path.exists(out_dir):
+        if os.path.exists(dataset_dir):
             raise OSError(f'Cannot make directory, {dataset_dir} already exists')
-        
+
         os.makedirs(dataset_dir)
         print(f"Created directory {dataset_dir}")
 
         for img in json_obj[dataset_name]:
             src = os.path.join(input_dir, img)
             out = os.path.join(dataset_dir, img)
-            
+
             try:
                 raise_exeption_if_file_exists(out)
             except FileExistsError:
