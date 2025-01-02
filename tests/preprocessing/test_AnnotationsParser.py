@@ -219,13 +219,13 @@ def test_create_background_dict():
     parser = AnnotationsParser(folder_path="fake_folder")
     out_dict = parser.create_background_dict("image_0000011.jpg")
 
-    assert out_dict['img_name'] == ['image_0000011.jpg']
-    assert out_dict['Background'] == [1]
-    assert out_dict['Crack'] == [0]
-    assert out_dict['Spallation'] == [0]
-    assert out_dict['Efflorescence'] == [0]
-    assert out_dict['ExposedBars'] == [0]
-    assert out_dict['CorrosionStain'] == [0]
+    assert out_dict['img_name'] == 'image_0000011.jpg'
+    assert out_dict['Background'] == 1
+    assert out_dict['Crack'] == 0
+    assert out_dict['Spallation'] == 0
+    assert out_dict['Efflorescence'] == 0
+    assert out_dict['ExposedBars'] == 0
+    assert out_dict['CorrosionStain'] == 0
 
 
 def test_fill_df_with_missing_images():

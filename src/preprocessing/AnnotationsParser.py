@@ -63,14 +63,14 @@ class AnnotationsParser:
         if not defects_found:
             bg_row = self.create_background_dict(img_name)
             for key, val in bg_row.items():
-                out_dict[key].append(val[0])
+                out_dict[key].append(val)
 
         return pd.DataFrame(out_dict)
 
     def create_background_dict(self, img_name: str) -> dict:
-        row = {col: [0] for col in self._cols}
-        row['img_name'] = [img_name]
-        row['Background'] = [1]  # Default to background=1
+        row = {col: 0 for col in self._cols}
+        row['img_name'] = img_name
+        row['Background'] = 1  # Default to background=1
         return row
 
     def fill_df_with_missing_images(self, df: pd.DataFrame) -> pd.DataFrame:
