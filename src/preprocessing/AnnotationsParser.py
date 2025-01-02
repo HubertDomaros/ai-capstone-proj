@@ -39,28 +39,26 @@ class AnnotationsParser:
 
         defects_found: bool = False
 
-        # Parse each object from the XML
         for obj in objects:
             if obj.get('name') == 'defect':
                 defects_found = True
                 out_dict['img_name'].append(img_name)
 
-                # Bounding box - fill with 0 if missing
                 bndbox: Dict[str, str] = obj.get('bndbox', {})
                 for coord in ('xmin', 'ymin', 'xmax', 'ymax'):
                     out_dict[coord].append(int(bndbox.get(coord, 0)))
 
-                # Parse defects and handle missing values
                 defects: Dict[str, str] = obj.get('Defect', {})
                 for defect in self._cols:
                     if defect not in ('img_name', 'xmin', 'ymin', 'xmax', 'ymax'):
                         try:
                             out_dict[defect].append(int(defects.get(defect, 0)))
                         except ValueError:
-                            logger.warning(f"Invalid value for {defect} in {img_name}: {defects.get(defect)}")
+                            logger.warning(
+                                f"Invalid value for {defect} in {img_name}: {defects.get(defect)}"
+                            )
                             out_dict[defect].append(0)
 
-        # If no defects found, add background row
         if not defects_found:
             bg_row: Dict[str, str | int] = self.create_background_dict(img_name)
             for key, val in bg_row.items():
@@ -71,7 +69,7 @@ class AnnotationsParser:
     def create_background_dict(self, img_name: str) -> Dict[str, str | int]:
         row: Dict[str, str | int] = {col: 0 for col in self._cols}
         row['img_name'] = img_name
-        row['Background'] = 1  # Default to background=1
+        row['Background'] = 1
         return row
 
     def fill_df_with_missing_images(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -82,7 +80,9 @@ class AnnotationsParser:
         all_imgs: set[str] = {f"image{img:07d}.jpg" for img in range(1, last_img_no)}
         missing_imgs: set[str] = all_imgs - existing_imgs
 
-        background_dicts: List[Dict[str, str | int]] = [self.create_background_dict(img) for img in missing_imgs]
+        background_dicts: List[Dict[str, str | int]] = [
+            self.create_background_dict(img) for img in missing_imgs
+        ]
         background_df: pd.DataFrame = pd.DataFrame(background_dicts)
 
         return pd.concat([df, background_df], ignore_index=True)
