@@ -2,7 +2,7 @@ import os
 import pytest
 import pandas as pd
 from unittest.mock import patch, mock_open
-from src.preprocessing.AnnotationsParser import AnnotationsParser
+from src.preprocessing.LabelParser import LabelParser
 
 
 
@@ -55,7 +55,7 @@ def test_parse_xml_to_dict_valid():
         </annotation>
     """
     with patch("builtins.open", mock_open(read_data=fake_xml_content)) as mocked_file:
-        parser = AnnotationsParser(folder_path="fake_folder")
+        parser = LabelParser(folder_path="fake_folder")
         data = parser.parse_xml_to_dict("fake_file.xml")
         assert data is not None
         assert data['annotation']['folder'] == 'images'
@@ -67,7 +67,7 @@ def test_parse_xml_to_dict_file_not_found():
     Test that parse_xml_to_dict returns None if the file is not found.
     """
     with patch("builtins.open", side_effect=FileNotFoundError("File not found")):
-        parser = AnnotationsParser(folder_path="fake_folder")
+        parser = LabelParser(folder_path="fake_folder")
         data = parser.parse_xml_to_dict("non_existent.xml")
         assert data is None
 
@@ -134,7 +134,7 @@ def test_parse_dict_annotation(sample_xml_dict):
     Test that parse_dict_annotation correctly converts the sample XML dict
     to a Pandas DataFrame with expected values.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
 
     df = parser.parse_dict_annotation(sample_xml_dict)
 
@@ -197,7 +197,7 @@ def test_parse_dict_annotation_no_defects():
             ]
         }
     }
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     df = parser.parse_dict_annotation(sample_dict_no_defects)
 
     assert len(df) == 1
@@ -216,7 +216,7 @@ def test_create_background_dict():
     Test that create_Background_dict creates a dictionary with
     Background=1 and other defect columns set to 0.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     out_dict = parser.create_background_dict("image_0000011.jpg")
 
     assert out_dict['img_name'] == 'image_0000011.jpg'
@@ -234,10 +234,10 @@ def test_fill_df_with_missing_images():
     setting them as Background=1.
     """
     # Print the class to confirm correct import
-    print(AnnotationsParser)  # Should output: <class 'src.preprocessing.AnnotationsParser.AnnotationsParser'>
+    print(LabelParser)  # Should output: <class 'src.preprocessing.LabelParser.LabelParser'>
 
-    # Initialize the AnnotationsParser
-    parser = AnnotationsParser(folder_path="fake_folder")
+    # Initialize the LabelParser
+    parser = LabelParser(folder_path="fake_folder")
     assert parser is not None
 
     # Prepare a DataFrame with intentional missing images
@@ -297,7 +297,7 @@ def test_parse_xmls_to_dataframe(mock_listdir, sample_xml_dict):
     mock_listdir.return_value = ["annotation1.xml", "annotation2.txt", "annotation3.xml"]
 
     # We will mock parse_xml_to_dict so that it returns sample_xml_dict for .xml files
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch.object(parser, 'parse_xml_to_dict') as mock_parse:
         def side_effect(filepath):
             if filepath.endswith(".xml"):
@@ -359,7 +359,7 @@ def test_parse_multiple_objects(file_contents_dict):
     """
     Test parsing an XML file containing multiple <object> entries.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -385,7 +385,7 @@ def test_parse_multiple_objects(file_contents_dict):
     ],
 )
 def test_parse_single_object(file_contents_dict):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -410,7 +410,7 @@ def test_parse_no_objects(file_contents_dict):
     This is similar to test_parse_dict_annotation_no_defects but
     checks the entire pipeline with parse_xmls_to_dataframe.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -434,7 +434,7 @@ def test_parse_no_objects(file_contents_dict):
     ],
 )
 def test_parse_malformed_xml(file_contents_dict):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             # parse_xml_to_dict should return None or fail to parse,
@@ -461,7 +461,7 @@ def test_parse_malformed_xml(file_contents_dict):
     ],
 )
 def test_parse_missing_fields(file_contents_dict, caplog):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -488,7 +488,7 @@ def test_parse_missing_fields(file_contents_dict, caplog):
     ],
 )
 def test_parse_invalid_defect_values(file_contents_dict, caplog):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -526,7 +526,7 @@ def test_fill_missing_images_large(file_contents_dict):
     Test that all images up to 1600 are considered, and any that
     aren't in the parsed results get background=1.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -545,7 +545,7 @@ def test_no_xml_files_screenshot(file_contents_dict):
     should return either an empty DataFrame or 1600 background rows,
     depending on your fill logic.
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         df = parser.parse_xmls_to_dataframe()
         # Depending on your code, might be empty or might have 1600 background rows.
@@ -571,7 +571,7 @@ def test_no_xml_files_screenshot(file_contents_dict):
     ],
 )
 def test_non_defect_objects_screenshot(file_contents_dict):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -597,7 +597,7 @@ def test_non_defect_objects_screenshot(file_contents_dict):
     ],
 )
 def test_invalid_image_filenames(file_contents_dict, caplog):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -629,7 +629,7 @@ def test_duplicate_image_filenames(file_contents_dict, caplog):
     Tests how duplicates are handled. Does your code combine them?
     Overwrite one? Create multiple rows for the same filename?
     """
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -648,7 +648,7 @@ def test_duplicate_image_filenames(file_contents_dict, caplog):
     ],
 )
 def test_large_number_of_xml_files(file_contents_dict):
-    parser = AnnotationsParser(folder_path="fake_folder")
+    parser = LabelParser(folder_path="fake_folder")
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
@@ -679,7 +679,7 @@ def test_annotations_df_property(file_contents_dict):
     """
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
-            parser = AnnotationsParser(folder_path="fake_folder")
+            parser = LabelParser(folder_path="fake_folder")
             df = parser.annotations_df
             assert not df.empty
             assert "Crack" in df.columns
@@ -707,7 +707,7 @@ def test_non_defect_objects_logging(file_contents_dict, caplog):
     """
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
-            parser = AnnotationsParser(folder_path="fake_folder")
+            parser = LabelParser(folder_path="fake_folder")
             df = parser.parse_xmls_to_dataframe()
             assert len(df) == 1
             assert df.loc[0, 'Background'] == 1

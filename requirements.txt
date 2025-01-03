@@ -1,7 +1,8 @@
-beautifulsoup4~=4.12.3
 numpy~=1.26.4
 pandas~=2.2.1
 xmltodict~=0.14.2
 scikit-multilearn~=0.2.0
-bs4~=0.0.2
 pytest~=8.3.4
+albumentations~=1.4.24
+keras~=3.5.0
+opencv-python~=4.10.0.84
