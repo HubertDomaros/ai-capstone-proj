@@ -7,18 +7,19 @@ import pandas as pd
 # defect types: object -> Defect -> Background, Crack, Spallation, Efflorescence, ExposedBars, CorrosionStain
 
 example_dict = {
-        'img': 'image_0000005.jpg',
-        "xmin": 661,
-        "ymin": 472,
-        "xmax": 992,
-        "ymax": 1857,
-        "Background": 0,
-        "Crack": 0,
-        "Spallation": 0,
-        "Efflorescence": 1,
-        "ExposedBars": 0,
-        "CorrosionStain": 1
-    }
+    'img': 'image_0000005.jpg',
+    "xmin": 661,
+    "ymin": 472,
+    "xmax": 992,
+    "ymax": 1857,
+    "Background": 0,
+    "Crack": 0,
+    "Spallation": 0,
+    "Efflorescence": 1,
+    "ExposedBars": 0,
+    "CorrosionStain": 1
+}
+
 
 def xml_to_dict(filepath: str):
     with open(filepath, 'r') as file:
@@ -76,6 +77,7 @@ def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict):
 
     return out_dict
 
+
 def extract_annotations_from_xmls(folder_path: str) -> list[dict[str, list[str | int]]]:
     list_of_files = os.listdir(folder_path)
     list_of_dicts_of_bbox_descriptions = []
@@ -88,8 +90,9 @@ def extract_annotations_from_xmls(folder_path: str) -> list[dict[str, list[str |
 
     return list_of_dicts_of_bbox_descriptions
 
+
 def unpack_lists(list_of_dicts) -> dict[str, list[str, int]]:
-    out_dict =  {
+    out_dict = {
         'img': [],
         "xmin": [],
         "ymin": [],
@@ -117,13 +120,14 @@ def unpack_lists(list_of_dicts) -> dict[str, list[str, int]]:
 
     return out_dict
 
+
 def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
     list_of_dicts = extract_annotations_from_xmls(folder_path=folder_path)
     lst = unpack_lists(list_of_dicts=list_of_dicts)
     return pd.DataFrame(lst)
 
 
-x = xml_annotations_to_dataframe(r'D:\0-Code\PG\2_sem\0_Dyplom\ai-capstone-proj\kaggle\input\codebrim-original\original_dataset\annotations')
-
-
-print(x)
+if __name__ == '__main__':
+    x = xml_annotations_to_dataframe(
+        r'D:\0-Code\PG\2_sem\0_Dyplom\ai-capstone-proj\kaggle\input\codebrim-original\original_dataset\annotations')
+    print(x)
