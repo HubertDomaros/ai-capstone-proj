@@ -25,84 +25,54 @@ def xml_to_dict(filepath: str):
         xml = file.read()
         return xmltodict.parse(xml)
 
+
 def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict):
     annotation = dict_with_labels['annotation']
+    img_name = annotation['filename']
+    size = annotation['size']
+    objects = annotation.get('object', [])
 
-    img_name = []
-    xmin = []
-    ymin = []
-    xmax = []
-    ymax = []
-    Background = []
-    Crack = []
-    Spallation = []
-    Efflorescence = []
-    ExposedBars = []
-    CorrosionStain = []
+    if not isinstance(objects, list):
+        objects = [objects]
 
-    if 'object' not in annotation:
-        img_name.append(annotation['filename'])
-        xmin.append(0)
-        ymin.append(0)
-        xmax.append(int(annotation['size']['width']))
-        ymax.append(int(annotation['size']['height']))
-        Background.append(1)
-        Crack.append(0)
-        Spallation.append(0)
-        Efflorescence.append(0)
-        ExposedBars.append(0)
-        CorrosionStain.append(0)
-
-        out_dict = {
-            'img': img_name,
-            'xmin': xmin,
-            'ymin': ymin,
-            'xmax': xmax,
-            'ymax': ymax,
-            'Background': Background,
-            'Crack': Crack,
-            'Spallation': Spallation,
-            'Efflorescence': Efflorescence,
-            'ExposedBars': ExposedBars,
-            'CorrosionStain': CorrosionStain
+    # Default values for images with no objects
+    if not objects:
+        return {
+            'img': [img_name],
+            'xmin': [0], 'ymin': [0],
+            'xmax': [int(size['width'])],
+            'ymax': [int(size['height'])],
+            'Background': [1],
+            'Crack': [0],
+            'Spallation': [0],
+            'Efflorescence': [0],
+            'ExposedBars': [0],
+            'CorrosionStain': [0]
         }
 
-        return out_dict
+    # Initialize output dictionary
+    out_dict = {
+        'img': [], 'xmin': [], 'ymin': [], 'xmax': [], 'ymax': [],
+        'Background': [], 'Crack': [], 'Spallation': [],
+        'Efflorescence': [], 'ExposedBars': [], 'CorrosionStain': []
+    }
 
-    bbox_descriptions = []
+    for obj in objects:
+        bbox = obj['bndbox']
+        defect = obj['Defect']
 
-    if type(annotation['object']) is list:
-        bbox_descriptions = annotation['object']
-    else:
-        bbox_descriptions = [annotation['object']]
+        out_dict['img'].append(img_name)
+        out_dict['xmin'].append(int(bbox['xmin']))
+        out_dict['ymin'].append(int(bbox['ymin']))
+        out_dict['xmax'].append(int(bbox['xmax']))
+        out_dict['ymax'].append(int(bbox['ymax']))
 
-    for bbox_description in bbox_descriptions:
-        img_name.append(annotation['filename'])
-        xmin.append(int(bbox_description['bndbox']['xmin']))
-        ymin.append(int(bbox_description['bndbox']['ymin']))
-        xmax.append(int(bbox_description['bndbox']['xmax']))
-        ymax.append(int(bbox_description['bndbox']['ymax']))
-
-        Background.append(int(bbox_description['Defect']['Background']))
-        Crack.append(bbox_description['Defect']['Crack'])
-        Spallation.append(int(bbox_description['Defect']['Spallation']))
-        Efflorescence.append(int(bbox_description['Defect']['Efflorescence']))
-        ExposedBars.append(int(bbox_description['Defect']['ExposedBars']))
-        CorrosionStain.append(int(bbox_description['Defect']['CorrosionStain']))
-
-        out_dict = {
-            'img': img_name,
-            'xmin': xmin,
-            'ymin': ymin,
-            'xmax': xmax,
-            'ymax': ymax,
-            'Background': Background,
-            'Crack': Crack,
-            'Spallation': Spallation,
-            'Efflorescence': Efflorescence,
-            'ExposedBars': ExposedBars,
-            'CorrosionStain': CorrosionStain
-        }
+        out_dict['Background'].append(int(defect['Background']))
+        out_dict['Crack'].append(int(defect['Crack']))
+        out_dict['Spallation'].append(int(defect['Spallation']))
+        out_dict['Efflorescence'].append(int(defect['Efflorescence']))
+        out_dict['ExposedBars'].append(int(defect['ExposedBars']))
+        out_dict['CorrosionStain'].append(int(defect['CorrosionStain']))
 
     return out_dict
 
@@ -156,4 +126,4 @@ def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
 x = xml_annotations_to_dataframe(r'D:\0-Code\PG\2_sem\0_Dyplom\ai-capstone-proj\kaggle\input\codebrim-original\original_dataset\annotations')
 
 
-print(x.head())
+print(x)
