@@ -3,77 +3,74 @@ import os
 import xmltodict
 import pandas as pd
 
+import constants as c
+
 # bbox coordinates: object -> bndbox -> xmin, xmax, ymin, ymax
 # defect types: object -> Defect -> Background, Crack, Spallation, Efflorescence, ExposedBars, CorrosionStain
-
-example_dict = {
-    'img': 'image_0000005.jpg',
-    "xmin": 661,
-    "ymin": 472,
-    "xmax": 992,
-    "ymax": 1857,
-    "Background": 0,
-    "Crack": 0,
-    "Spallation": 0,
-    "Efflorescence": 1,
-    "ExposedBars": 0,
-    "CorrosionStain": 1
-}
-
-
 def xml_to_dict(filepath: str):
     with open(filepath, 'r') as file:
         xml = file.read()
         return xmltodict.parse(xml)
 
 
-def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict):
+def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict) -> dict[str, list[str|int]]:
     annotation = dict_with_labels['annotation']
     img_name = annotation['filename']
     size = annotation['size']
+
     objects = annotation.get('object', [])
 
     if not isinstance(objects, list):
         objects = [objects]
 
+    # Initialize output dictionary
+    # out_dict = {
+    #         'img': [],
+    #         'width': [],
+    #         'height': [],
+    #         'xmin': [],
+    #         'ymin': [],
+    #         'xmax': [],
+    #         'ymax': [],
+    #         'Background': [],
+    #         'Crack': [],
+    #         'Spallation': [],
+    #         'Efflorescence': [],
+    #         'ExposedBars': [],
+    #         'CorrosionStain': []
+    #     }
+
+    out_dict = {}
+
+    for key in c.StdColNames:
+        out_dict[key] = []
+
     # Default values for images with no objects
     if not objects:
-        return {
-            'img': [img_name],
-            'xmin': [0], 'ymin': [0],
-            'xmax': [int(size['width'])],
-            'ymax': [int(size['height'])],
-            'Background': [1],
-            'Crack': [0],
-            'Spallation': [0],
-            'Efflorescence': [0],
-            'ExposedBars': [0],
-            'CorrosionStain': [0]
+
+        out_dict = {
+            c.IMG: [img_name],
+            c.WIDTH: [int(size['width'])],
+            c.HEIGHT: [int(size['height'])],
+            c.XMIN: [0],
+            c.YMIN: [0],
+            c.XMAX: [int(size['width'])],
+            c.YMAX: [int(size['height'])],
+            c.BACKGROUND: [1]
         }
 
-    # Initialize output dictionary
-    out_dict = {
-        'img': [], 'xmin': [], 'ymin': [], 'xmax': [], 'ymax': [],
-        'Background': [], 'Crack': [], 'Spallation': [],
-        'Efflorescence': [], 'ExposedBars': [], 'CorrosionStain': []
-    }
+        for key in c.DefectNames[1:]:
+            out_dict[key] = [0]
+
 
     for obj in objects:
         bbox = obj['bndbox']
         defect = obj['Defect']
 
-        out_dict['img'].append(img_name)
-        out_dict['xmin'].append(int(bbox['xmin']))
-        out_dict['ymin'].append(int(bbox['ymin']))
-        out_dict['xmax'].append(int(bbox['xmax']))
-        out_dict['ymax'].append(int(bbox['ymax']))
+        out_dict[c.IMG].append(img_name)
 
-        out_dict['Background'].append(int(defect['Background']))
-        out_dict['Crack'].append(int(defect['Crack']))
-        out_dict['Spallation'].append(int(defect['Spallation']))
-        out_dict['Efflorescence'].append(int(defect['Efflorescence']))
-        out_dict['ExposedBars'].append(int(defect['ExposedBars']))
-        out_dict['CorrosionStain'].append(int(defect['CorrosionStain']))
+        for key in c.StdColNames[1:]:
+            out_dict[key].append(int(defect[key]))
 
     return out_dict
 
@@ -94,6 +91,8 @@ def extract_annotations_from_xmls(folder_path: str) -> list[dict[str, list[str |
 def unpack_lists(list_of_dicts) -> dict[str, list[str, int]]:
     out_dict = {
         'img': [],
+        'width': [],
+        'height': [],
         "xmin": [],
         "ymin": [],
         "xmax": [],
