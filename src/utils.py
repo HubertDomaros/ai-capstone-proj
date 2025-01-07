@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
-import itertools
-from collections.abc import Iterable
+from . import constants as c
+import pandas as pd
+import numpy as np
 
 
 def draw_bounding_box(xmin:int, ymin:int, xmax:int, ymax:int, edge_color: str = 'blue', linewidth: int=2):
@@ -12,24 +13,34 @@ def draw_bounding_box(xmin:int, ymin:int, xmax:int, ymax:int, edge_color: str = 
                                  edgecolor=edge_color, facecolor='none', linewidth=linewidth)
             
             
-def unpack_iterable(iterable: Iterable):
-    return list(itertools.chain.from_iterable(iterable))
+def unpack_lists(list_of_dicts, col_list) -> dict[str, list[str|int]]:
+    out_dict = {}
 
-def unpack_lists(list_of_dicts) -> dict[str, list[str, int]]:
-    out_dict = []
-    
+    for key in col_list:
+        out_dict[key] = []
+
     for single_dict in list_of_dicts:
-        if not isinstance(single_dict, dict):
-            print(f"Skipping invalid entry: {single_dict}")
-            continue
-        
-        try:
-            for key in single_dict.keys():
-                out_dict[key] = []
-                for value in single_dict[key]:
-                    out_dict[key].append(value)
-        except Exception as e:
-            print('Exception occurred on dict', single_dict)
-            raise Exception(e)
+        for key in single_dict.keys():
+            out_dict[key].extend(single_dict[key])
 
     return out_dict
+
+
+def list_of_dicts_to_dataframe(list_of_dicts, columns_list) -> pd.DataFrame:
+    return pd.DataFrame(unpack_lists(list_of_dicts=list_of_dicts, col_list=columns_list))
+
+
+def plot_img_with_bboxes(img, bboxes) -> None:
+    """
+    Plot the processed image with bounding boxes.
+    """
+    fig, ax = plt.subplots()
+    ax.imshow(img)
+    for bbox in bboxes:
+        i=0
+        bbox_rectangle = draw_bounding_box(bbox[0], bbox[1], bbox[2], bbox[3],
+                                                    c.colors_list[i], 2)
+        ax.add_patch(bbox_rectangle)
+        i+=1
+    plt.imshow(img)
+    plt.show()

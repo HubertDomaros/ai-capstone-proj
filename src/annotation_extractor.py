@@ -3,7 +3,8 @@ import os
 import xmltodict
 import pandas as pd
 
-import constants as c
+from . import constants as c
+from . import utils as u
 
 # bbox coordinates: object -> bndbox -> xmin, xmax, ymin, ymax
 # defect types: object -> Defect -> Background, Crack, Spallation, Efflorescence, ExposedBars, CorrosionStain
@@ -13,7 +14,7 @@ def xml_to_dict(filepath: str):
         return xmltodict.parse(xml)
 
 
-def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict) -> dict[str, list[str|int]]:
+def parse_bounding_boxes_labels(dict_with_labels: dict) -> dict[str, list[str | int]]:
     annotation = dict_with_labels['annotation']
     img_name = annotation['filename']
     size = annotation['size']
@@ -23,27 +24,7 @@ def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict) -> dict[str
     if not isinstance(objects, list):
         objects = [objects]
 
-    # Initialize output dictionary
-    # out_dict = {
-    #         'img': [],
-    #         'width': [],
-    #         'height': [],
-    #         'xmin': [],
-    #         'ymin': [],
-    #         'xmax': [],
-    #         'ymax': [],
-    #         'Background': [],
-    #         'Crack': [],
-    #         'Spallation': [],
-    #         'Efflorescence': [],
-    #         'ExposedBars': [],
-    #         'CorrosionStain': []
-    #     }
-
-    out_dict = {}
-
-    for key in c.StdColNames:
-        out_dict[key] = []
+    out_dict = {col:[] for col in c.columns_list}
 
     # Default values for images with no objects
     if not objects:
@@ -59,7 +40,7 @@ def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict) -> dict[str
             c.BACKGROUND: [1]
         }
 
-        for key in c.DefectNames[1:]:
+        for key in c.defect_names[1:]:
             out_dict[key] = [0]
 
 
@@ -69,7 +50,13 @@ def parse_bounding_boxes_labels_inside_image(dict_with_labels: dict) -> dict[str
 
         out_dict[c.IMG].append(img_name)
 
-        for key in c.StdColNames[1:]:
+        for key in c.image_dims_names:
+            out_dict[key].append(size[key])
+
+        for key in c.bbox_coordinate_names:
+            out_dict[key].append(bbox[key])
+
+        for key in c.defect_names:
             out_dict[key].append(int(defect[key]))
 
     return out_dict
@@ -82,47 +69,15 @@ def extract_annotations_from_xmls(folder_path: str) -> list[dict[str, list[str |
     for file_path in list_of_files:
         if file_path.endswith('.xml'):
             converted_xml = xml_to_dict(filepath=os.path.join(folder_path, file_path))
-            bbox_descriptions = parse_bounding_boxes_labels_inside_image(dict_with_labels=converted_xml)
+            bbox_descriptions = parse_bounding_boxes_labels(dict_with_labels=converted_xml)
             list_of_dicts_of_bbox_descriptions.append(bbox_descriptions)
 
     return list_of_dicts_of_bbox_descriptions
 
 
-def unpack_lists(list_of_dicts) -> dict[str, list[str, int]]:
-    out_dict = {
-        'img': [],
-        'width': [],
-        'height': [],
-        "xmin": [],
-        "ymin": [],
-        "xmax": [],
-        "ymax": [],
-        "Background": [],
-        "Crack": [],
-        "Spallation": [],
-        "Efflorescence": [],
-        "ExposedBars": [],
-        "CorrosionStain": []
-    }
-
-    for single_dict in list_of_dicts:
-        if not isinstance(single_dict, dict):
-            print(f"Skipping invalid entry: {single_dict}")
-            continue
-        try:
-            for key in single_dict.keys():
-                for value in single_dict[key]:
-                    out_dict[key].append(value)
-        except Exception as e:
-            print('Exception occurred on dict', single_dict)
-            raise Exception(e)
-
-    return out_dict
-
-
 def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
     list_of_dicts = extract_annotations_from_xmls(folder_path=folder_path)
-    lst = unpack_lists(list_of_dicts=list_of_dicts)
+    lst = u.unpack_lists(list_of_dicts=list_of_dicts, col_list=c.columns_list)
     return pd.DataFrame(lst)
 
 

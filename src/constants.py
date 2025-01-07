@@ -14,32 +14,13 @@ SPALLATION = 'Spallation'
 EFFLORESCENCE = 'Efflorescence'
 EXPOSEDBARS = 'ExposedBars'
 CORROSIONSTAIN = 'CorrosionStain'
-class StdColNames(Enum):
-    IMG = IMG
-    WIDTH = WIDTH
-    HEIGHT = HEIGHT
-    XMIN = XMIN
-    YMIN = YMIN
-    XMAX = XMAX
-    YMAX = YMAX
-    BACKGROUND = BACKGROUND
-    CRACK = CRACK
-    SPALLATION = SPALLATION
-    EFFLORESCENCE = EFFLORESCENCE
-    EXPOSEDBARS = EXPOSEDBARS
-    CORROSIONSTAIN = CORROSIONSTAIN
 
-colums_list = [IMG, WIDTH, HEIGHT, XMIN, YMIN, YMIN, YMAX,
-               BACKGROUND, SPALLATION, EFFLORESCENCE, EXPOSEDBARS, CORROSIONSTAIN]
+columns_list = [IMG, WIDTH, HEIGHT, XMIN, YMIN, XMAX, YMAX,
+                BACKGROUND, CRACK, SPALLATION, EFFLORESCENCE, EXPOSEDBARS, CORROSIONSTAIN]
 
-class Dimensions(Enum):
-    WIDTH = WIDTH
-    HEIGHT = HEIGHT
-    XMIN = XMIN
-    YMIN = YMIN
-    XMAX = XMAX
-    YMAX = YMAX
-
+image_dims_names = [WIDTH, HEIGHT]
+bbox_coordinate_names = [XMIN, YMIN, XMAX, YMAX]
+defect_names = [BACKGROUND, CRACK, SPALLATION, EFFLORESCENCE, EXPOSEDBARS, CORROSIONSTAIN]
 
 class Colors(Enum):
     BLUE = 'tab:blue'
@@ -53,10 +34,5 @@ class Colors(Enum):
     OLIVE = 'tab:olive'
     CYAN = 'tab:cyan'
 
-class DefectNames(Enum):
-    BACKGROUND = BACKGROUND
-    CRACK = CRACK
-    SPALLATION = SPALLATION
-    EFFLORESCENCE = EFFLORESCENCE
-    EXPOSEDBARS = EXPOSEDBARS
-    CORROSIONSTAIN = CORROSIONSTAIN
+colors_list = [Colors.BLUE.value, Colors.ORANGE.value, Colors.GREEN.value, Colors.RED.value, Colors.PURPLE.value,
+            Colors.BROWN.value, Colors.PINK.value, Colors.GRAY.value, Colors.OLIVE.value, Colors.CYAN.value]
