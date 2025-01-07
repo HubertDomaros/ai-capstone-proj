@@ -23,8 +23,8 @@ def augment_image_and_save_to_folder(input_file_path: str, output_folder: str, d
     augmented_images: list[improc.ImageAugumentor] = improc.generate_augmented_images(image_path=input_file_path,
                                                                                       bounding_boxes=bboxes,
                                                                                       label_values=multi_hot_encoded_labels,
-                                                                                      resize=True, out_width=512,
-                                                                                      out_height=512)
+                                                                                      resize=True, target_width=512,
+                                                                                      target_height=512)
 
     out_dict_list = []
     for augmented_image in augmented_images:
