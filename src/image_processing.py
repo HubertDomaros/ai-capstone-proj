@@ -1,24 +1,24 @@
 import os
-from dataclasses import dataclass, field
-from typing import Literal
+from typing import List, Tuple, Dict, Any
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-import pandas as pd
+
 import albumentations as A
 import albumentations.core.bbox_utils as A_bbox_utils
 
 from . import utils as u
-from . import constants as c
+
 
 class ImageAugumentor:
     """
     A class for augmenting images with bounding boxes and labels.
+    Provides functionality for image preprocessing, augmentation, and format conversion.
     """
 
     def __init__(self, filepath: str,
-                 label_values: list[tuple[int, ...]],
+                 label_values: List[Tuple[int, ...]],
                  bounding_boxes: NDArray[NDArray[int]]):
         """
         Initialize the ImageAugumentor with image file path, bounding boxes, and label values.
@@ -26,53 +26,118 @@ class ImageAugumentor:
         Args:
             filepath (str): Path to the image file.
             bounding_boxes (NDArray[NDArray[int]]): List of bounding boxes in albumentations format.
-            label_values (list[tuple[int, ...]]): List of label values.
+            label_values (List[Tuple[int, ...]]): List of label values.
+
+        Raises:
+            IOError: If the provided filepath is not a valid image.
         """
         self._filepath = filepath
-        self._input_img: cv2.Mat = cv2.imread(filepath, 1)
-        if self._input_img is None:
-            raise IOError(f'{filepath} is not an image')
-        self._input_img: cv2.Mat = cv2.cvtColor(self._input_img, cv2.COLOR_BGR2RGB)
-        
+        self._input_img = self._load_input_image()
         self._label_values = label_values
-        img_height = self._input_img.shape[0]
-        img_width = self._input_img.shape[1]
-        self._bounding_boxes = A_bbox_utils.convert_bboxes_to_albumentations(bounding_boxes, 'pascal_voc',
-                                                                                  (img_height, img_width))
+        self._bounding_boxes = self._convert_to_albumentations_format(bounding_boxes)
 
+        # Initialize output variables
         self._out_img = self._input_img
         self._out_img_name = None
         self._out_bboxes = self._bounding_boxes
         self._out_label_values = label_values
+
+        # Apply initial padding
         self._add_padding()
 
-    def _add_padding(self):
+    @staticmethod
+    def _load_image(filepath) -> cv2.Mat:
+        """
+        Load and preprocess the input image.
+        Returns:
+            cv2.Mat: Preprocessed image in RGB format
+        Raises:
+            IOError: If the file is not a valid image
+        """
+        img = cv2.imread(filepath, 1)
+        if img is None:
+            raise IOError(f'{filepath} is not an image')
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _convert_to_albumentations_format(self, bounding_boxes: NDArray[NDArray[int]]) -> NDArray:
+        """
+        Convert bounding boxes to albumentations format.
+        Args:
+            bounding_boxes (NDArray[NDArray[int]]): Input bounding boxes
+        Returns:
+            NDArray: Bounding boxes in albumentations format
+        """
+        img_height, img_width = self._input_img.shape[:2]
+        return A_bbox_utils.convert_bboxes_to_albumentations(
+            bounding_boxes, 'pascal_voc', (img_height, img_width))
+
+    @staticmethod
+    def _create_bbox_params(min_visibility: float = 0) -> A.BboxParams:
+        """
+        Create bbox parameters for albumentation transformations.
+        Args:
+            min_visibility (float): Minimum visibility threshold for bboxes
+        Returns:
+            A.BboxParams: Configured parameters
+        """
+        return A.BboxParams(
+            format='albumentations',
+            label_fields=['label_fields'],
+            min_visibility=min_visibility
+        )
+
+    def _get_augmentation_pipeline(self) -> A.Compose:
+        """
+        Create the augmentation pipeline with configured transformations.
+
+        Returns:
+            A.Compose: Configured augmentation pipeline
+        """
+        high_priority = [
+            A.HorizontalFlip(p=0.5),
+            A.PlasmaBrightnessContrast(p=0.2),
+            A.VerticalFlip(p=0.5),
+        ]
+
+        return A.Compose([
+            A.SomeOf(transforms=high_priority, n=np.random.randint(1, 4)),
+        ], bbox_params=self._create_bbox_params())
+
+    def _add_padding(self) -> 'ImageAugumentor':
         """
         Add padding to the image to make it square.
+
+        Returns:
+            ImageAugumentor: Self for method chaining
         """
-        height = self._input_img.shape[0]
-        width = self._input_img.shape[1]
-        bboxparams = A.BboxParams(format='albumentations', label_fields=['label_fields'])
+        height, width = self._input_img.shape[:2]
+        max_dim = max(width, height)
 
-        if width > height:
-            pipeline = A.Compose([
-                A.PadIfNeeded(width, width, border_mode=cv2.BORDER_CONSTANT)
-            ], bbox_params=bboxparams)
-        else:
-            pipeline = A.Compose([
-                A.PadIfNeeded(width, width, border_mode=cv2.BORDER_CONSTANT)
-            ], bbox_params=bboxparams)
+        pipeline = A.Compose([
+            A.PadIfNeeded(max_dim, max_dim, border_mode=cv2.BORDER_CONSTANT)
+        ], bbox_params=self._create_bbox_params())
 
-        augumented_img = pipeline(image=self._input_img, bboxes=self._bounding_boxes,
-                                  label_fields=self._label_values)
+        augmented = pipeline(
+            image=self._input_img,
+            bboxes=self._bounding_boxes,
+            label_fields=self._label_values
+        )
 
-        self._out_img = augumented_img['image']
-        self._out_bboxes = augumented_img['bboxes']
-        #self._out_bboxes = [[max(0.001, min(0.9999, x)) for x in box] for box in self._out_bboxes]
-        self._out_label_values = augumented_img['label_fields']
+        self._update_augmented_outputs(augmented)
         return self
 
-    def resize(self, out_width=512, out_height=512):
+    def _update_augmented_outputs(self, augmented: Dict[str, Any]) -> None:
+        """
+        Update internal state with augmented outputs.
+
+        Args:
+            augmented (Dict[str, Any]): Augmentation results
+        """
+        self._out_img = augmented['image']
+        self._out_bboxes = augmented['bboxes']
+        self._out_label_values = augmented['label_fields']
+
+    def resize(self, out_width: int = 512, out_height: int = 512) -> 'ImageAugumentor':
         """
         Resize the image to the specified width and height.
 
@@ -83,7 +148,7 @@ class ImageAugumentor:
         Returns:
             self: The instance itself.
         """
-        bboxparams = A.BboxParams(format='albumentations', label_fields=['label_fields'])
+        bboxparams = self._create_bbox_params(min_visibility=0)
         pipeline = A.Compose([
             A.Resize(width=out_width, height=out_height)
         ], bbox_params=bboxparams)
@@ -94,42 +159,20 @@ class ImageAugumentor:
         self._out_label_values = augumented_img['label_fields']
         return self
 
-    def apply_augumentations(self):
+    def apply_augumentations(self) -> 'ImageAugumentor':
         """
         Apply a series of augmentations to the image.
 
         Returns:
-            self: The instance itself.
+            ImageAugumentor: Self for method chaining
         """
-        bboxparams = A.BboxParams(format='albumentations',
-                                  label_fields=['label_fields'],
-                                  min_visibility=0)
-
-        high_priority = [
-            #A.Rotate(limit=15, p=0.7, border_mode=cv2.BORDER_CONSTANT),
-            A.HorizontalFlip(p=0.5),
-            A.PlasmaBrightnessContrast(p=0.8),
-            A.Perspective(p=0.5)
-        ]
-        medium_priority = [
-            A.ElasticTransform(alpha=10, sigma=20, p=0.25),
-            A.VerticalFlip(p=0.5),
-            A.GaussianBlur(blur_limit=(3, 7), p=0.45),
-            A.GaussNoise(p=0.35, std_range=(0.1, 0.2)),
-            A.ChannelShuffle(p=0.2),
-            A.ShiftScaleRotate(rotate_limit=(0, 0))
-        ]
-        pipeline = A.Compose([
-            A.SomeOf(transforms=high_priority, n=np.random.randint(1, 4)),
-            A.RandomOrder(transforms=medium_priority, n=np.random.randint(1, 3))
-        ], bbox_params=bboxparams)
-
-        augumented_img = pipeline(image=self._out_img, bboxes=self._out_bboxes,
-                                  label_fields=self._label_values)
-
-        self._out_img = augumented_img['image']
-        self._out_bboxes = augumented_img['bboxes']
-        self._out_label_values = augumented_img['label_fields']
+        pipeline = self._get_augmentation_pipeline()
+        augmented = pipeline(
+            image=self._out_img,
+            bboxes=self._out_bboxes,
+            label_fields=self._label_values
+        )
+        self._update_augmented_outputs(augmented)
         return self
 
     def plot_processed_img_with_bboxes(self) -> None:
@@ -147,36 +190,46 @@ class ImageAugumentor:
             cv2.typing.MatLike: The processed image.
         """
         return self._out_img
-    
-    
+
+
     @property
     def processed_image_name(self) -> str:
         if self._out_img_name is None:
             raise ValueError('Image name is not set. Set image name first '+
                              'by calling setter processsed_image_name()')
         return self._out_img_name
-    
+
     @processed_image_name.setter
     def processed_image_name(self, img_name: str) -> None:
         self._out_img_name = img_name
 
 
     @property
-    def processed_bboxes_albumentations(self) -> list[tuple[int]]:
+    def processed_bboxes_albumentations(self) -> list[NDArray[int]]:
         """
         Get the processed bounding boxes.
 
         Returns:
             list[tuple[int]]: The processed bounding boxes in albumentations format.
         """
-        return self._out_bboxes
+        return self._out_bboxes.tolist()
 
     @property
     def processed_bboxes_pascal_voc(self) -> list[tuple[int]]:
+        height = self.processed_image.shape[0]
+        width = self.processed_image.shape[1]
         pascal_voc_bboxes = A_bbox_utils.convert_bboxes_from_albumentations(
                                         self._out_bboxes, 'pascal_voc',
-                                        shape=self.processed_image.shape)
+                                        shape=(height, width))
         return pascal_voc_bboxes.tolist()
+
+    @property
+    def processed_bboxes_yolo(self) -> list[list[int]]:
+        height = self.processed_image.shape[0]
+        width = self.processed_image.shape[1]
+        yolo_bboxes = A_bbox_utils.convert_bboxes_from_albumentations(self._out_bboxes, 'yolo',
+                                                                      (height, width))
+        return yolo_bboxes.tolist()
 
     @property
     def processed_label_values(self) -> list[tuple[int, ...]]:
@@ -192,10 +245,10 @@ class ImageAugumentor:
         """
         return {
             'img': [self.processed_image_name] * len(self._out_bboxes),
-            'bboxes': self._out_bboxes,
-            'label_values': self._out_label_values
+            'bboxes': self.processed_bboxes_yolo,
+            'label_values': self.processed_label_values
         }
-    
+
 
 def generate_augmented_images(image_path: str,
                               bounding_boxes: NDArray[NDArray[int]],
@@ -235,16 +288,7 @@ def generate_augmented_images(image_path: str,
 
         aug_obj.apply_augumentations()
         aug_obj.processed_image_name = f'{image_name_wo_ext}_{i+1}{file_extension}'
-        
+
         images.append(aug_obj)
-        
+
     return images
-
-        
-    
-    
-# def process_images_in_folder(folder_path: str, input_df: pd.DataFrame):
-#     file_set = set(os.listdir(folder_path))
-
-#     for filename, filedata in input_df.groupby[c.IMG]:
-        
