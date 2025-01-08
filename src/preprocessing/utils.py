@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from . import constants as c
 import pandas as pd
 import numpy as np
@@ -22,8 +23,8 @@ def draw_bounding_box(xmin: int, ymin: int, xmax: int, ymax: int, edge_color: st
     height = ymax - ymin
     x = xmin
     y = ymin
-    return plt.Rectangle((x, y), width=width, height=height,
-                        edgecolor=edge_color, facecolor='none', linewidth=linewidth)
+    return Rectangle((x, y), width=width, height=height,
+                    edgecolor=edge_color, facecolor='none', linewidth=linewidth)
 
 
 def unpack_lists(list_of_dicts, col_list) -> dict[str, list[str | int]]:

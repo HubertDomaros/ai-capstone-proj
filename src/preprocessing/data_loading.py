@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 from skmultilearn.model_selection import iterative_train_test_split
 
-from src import constants as c
-import src.image_processing as improc
-import src.utils as u
+from . import constants as c
+from . import image_processing as improc
+from . import utils as u
 
 def augment_image_and_save_to_folder(input_file_path: str, output_folder: str, data: pd.DataFrame) -> dict:
     bboxes = data[c.bbox_coordinate_names].astype(int).to_numpy()
