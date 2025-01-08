@@ -13,7 +13,7 @@ def read_requirements(file_path):
     return requirements
 
 setup(
-    name='ai-capstone-proj',
+    name='aicap',
     version='0.1.0',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
