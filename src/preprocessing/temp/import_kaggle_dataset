@@ -1,0 +1,27 @@
+import os
+import kaggle
+from kaggle.api.kaggle_api_extended import KaggleApi
+import argparse
+
+def download_dataset_folder(dataset_name: str, output_dir: str = "kaggle/input/codebrim-original/original_dataset/annotations"):
+    """Download specific folder from Kaggle dataset"""
+    api = KaggleApi()
+    api.authenticate()
+    
+    try:
+        # Create output directory if not exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Download folder
+        api.dataset_download_files(
+            dataset=dataset_name,
+            path=output_dir,
+            unzip=True,
+            force=True,
+        )
+        print(f"Successfully downloaded from {dataset_name}")
+        
+    except Exception as e:
+        print(f"Error downloading folder: {str(e)}")
+
+download_dataset_folder('arct22/codebrim-original')
