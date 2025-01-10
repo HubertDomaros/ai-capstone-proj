@@ -34,12 +34,12 @@ class ImageAugumentor:
         self._filepath = filepath
         self._original_img = self._load_image(filepath)
         self._original_label_values = label_values
-        self._original_bounding_boxes = self._convert_to_albumentations_format(bounding_boxes)
+        self._original_bboxes = self._pascal_voc_to_albumentations(bounding_boxes)
 
         # Initialize output variables
         self._augmented_img = self._original_img
         self._augmented_img_name = None
-        self._augmented_out_bboxes = self._original_bounding_boxes
+        self._augmented_bboxes = self._original_bboxes
         self._augmented_label_values = label_values
 
         # Apply initial padding
@@ -67,9 +67,8 @@ class ImageAugumentor:
         Returns:
             NDArray: Bounding boxes in albumentations format
         """
-        img_height, img_width = self._original_img.shape[:2]
-        return A_bbox_utils.convert_bboxes_to_albumentations(
-            bounding_boxes, 'pascal_voc', (img_height, img_width))
+        return self._pascal_voc_to_albumentations(
+            bounding_boxes)
 
     @staticmethod
     def _create_bbox_params(min_visibility: float = 0) -> A.BboxParams:
@@ -85,6 +84,36 @@ class ImageAugumentor:
             label_fields=['label_fields'],
             min_visibility=min_visibility
         )
+
+    def _pascal_voc_to_albumentations(self, bboxes):
+        """
+        Convert bounding boxes to albumentations format.
+        Args:
+            bboxes (NDArray[NDArray[int]]): Input bounding boxes
+        Returns:
+            NDArray: Bounding boxes in albumentations format
+        """
+        out = []
+        img_h, img_w = self._original_img.shape[:2]
+        for bbox in bboxes:
+            xmin, ymin, xmax, ymax = bbox
+            xmin = int(xmin / img_w)
+            ymin = int(ymin / img_h)
+            xmax = int(xmax / img_w)
+            ymax = int(ymax / img_h)
+            out.append([xmin, ymin, xmax, ymax])
+        return np.asarray(out)
+
+    def _albumentations_to_yolo(self, bboxes):
+        out = []
+        img_h, img_w = self._original_img.shape[:2]
+        for bbox in bboxes:
+            xmin, ymin, xmax, ymax = bbox
+            bbox_width = xmax - xmin
+            bbox_height = ymax - ymin
+            x_center = (xmax + xmin) / 2
+            y_center = (ymax + ymin) / 2
+            out.append([x_center, y_center, bbox_width, bbox_height])
 
     def _get_augmentation_pipeline(self) -> A.Compose:
         """
@@ -119,7 +148,7 @@ class ImageAugumentor:
 
         augmented = pipeline(
             image=self._original_img,
-            bboxes=self._original_bounding_boxes,
+            bboxes=self._original_bboxes,
             label_fields=self._original_label_values
         )
 
@@ -134,7 +163,7 @@ class ImageAugumentor:
             augmented (Dict[str, Any]): Augmentation results
         """
         self._augmented_img = augmented['image']
-        self._augmented_out_bboxes = augmented['bboxes']
+        self._augmented_bboxes = augmented['bboxes']
         self._augmented_label_values = augmented['label_fields']
 
     def resize(self, out_width: int = 512, out_height: int = 512) -> 'ImageAugumentor':
@@ -155,7 +184,7 @@ class ImageAugumentor:
 
         augmented_result = pipeline(
             image=self._augmented_img,
-            bboxes=self._augmented_out_bboxes,
+            bboxes=self._augmented_bboxes,
             label_fields=self._original_label_values
         )
 
@@ -172,7 +201,7 @@ class ImageAugumentor:
         pipeline = self._get_augmentation_pipeline()
         augmented = pipeline(
             image=self._augmented_img,
-            bboxes=self._augmented_out_bboxes,
+            bboxes=self._augmented_bboxes,
             label_fields=self._original_label_values
         )
         self._update_augmented_outputs(augmented)
@@ -203,14 +232,14 @@ class ImageAugumentor:
     @property
     def processed_bboxes_albumentations(self) -> list[NDArray[int]]:
         """Get the augmented bounding boxes in albumentations format."""
-        return self._augmented_out_bboxes.tolist()
+        return self._augmented_bboxes.tolist()
 
     @property
     def processed_bboxes_pascal_voc(self) -> list[tuple[int]]:
         height = self.processed_image.shape[0]
         width = self.processed_image.shape[1]
         pascal_voc_bboxes = A_bbox_utils.convert_bboxes_from_albumentations(
-                                        self._augmented_out_bboxes, 'pascal_voc',
+                                        self._augmented_bboxes, 'pascal_voc',
                                         shape=(height, width))
         return pascal_voc_bboxes.tolist()
 
@@ -218,7 +247,7 @@ class ImageAugumentor:
     def processed_bboxes_yolo(self) -> list[list[int]]:
         height = self.processed_image.shape[0]
         width = self.processed_image.shape[1]
-        yolo_bboxes = A_bbox_utils.convert_bboxes_from_albumentations(self._augmented_out_bboxes, 'yolo',
+        yolo_bboxes = A_bbox_utils.convert_bboxes_from_albumentations(self._augmented_bboxes, 'yolo',
                                                                       (height, width))
         return yolo_bboxes.tolist()
 
@@ -235,7 +264,7 @@ class ImageAugumentor:
             dict: A dictionary with keys 'img', 'bboxes', and 'label_values'.
         """
         return {
-            'img': [self.processed_image_name] * len(self._augmented_out_bboxes),
+            'img': [self.processed_image_name] * len(self._augmented_bboxes),
             'bboxes': self.processed_bboxes_yolo,
             'label_values': self.processed_label_values
         }
