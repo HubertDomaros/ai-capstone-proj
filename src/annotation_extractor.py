@@ -1,4 +1,5 @@
 import os
+import re
 
 import xmltodict
 import pandas as pd
@@ -29,16 +30,13 @@ def parse_bounding_boxes_labels(dict_with_labels: dict) -> dict[str, list[str | 
     # Default values for images with no objects
     if not objects:
 
-        out_dict = {
-            c.IMG: [img_name],
-            c.WIDTH: [int(size['width'])],
-            c.HEIGHT: [int(size['height'])],
-            c.XMIN: [0],
-            c.YMIN: [0],
-            c.XMAX: [int(size['width'])],
-            c.YMAX: [int(size['height'])],
-            c.BACKGROUND: [1]
-        }
+        out_dict[c.IMG] = [img_name]
+        out_dict[c.WIDTH] = [int(size['width'])]
+        out_dict[c.HEIGHT] = [int(size['height'])]
+        out_dict[c.BACKGROUND] = [1]
+
+        for key in c.bbox_coordinate_names:
+            out_dict[key] = [0]
 
         for key in c.defect_names[1:]:
             out_dict[key] = [0]
@@ -79,6 +77,16 @@ def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
     list_of_dicts = extract_annotations_from_xmls(folder_path=folder_path)
     lst = u.unpack_lists(list_of_dicts=list_of_dicts, col_list=c.columns_list)
     return pd.DataFrame(lst)
+
+# def fill_missing_imgs_as_backgrounds(df: pd.DataFrame) -> pd.DataFrame:
+#     img_list
+#
+#     first = int(re.search('\d+', img_list[0]).group(0))
+#     last = int(re.search('\d+', img_list[-1]).group(0))
+
+
+
+
 
 
 if __name__ == '__main__':
