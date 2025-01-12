@@ -82,13 +82,13 @@ def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
 
 def fill_missing_imgs_in_df(img_folder_path, input_df):
     """
-    Adds missing images from a folder to a DataFrame containing image metadata.
-    For each image in the folder that's not in the input DataFrame, gets its dimensions
+    Adds missing images from a folder to a DataFrame containing image_path metadata.
+    For each image_path in the folder that's not in the input DataFrame, gets its dimensions
     and creates a new row with default values. Returns concatenated DataFrame with new entries.
 
     Args:
         img_folder_path (str): Path to folder containing images
-        input_df (pd.DataFrame): DataFrame with existing image metadata
+        input_df (pd.DataFrame): DataFrame with existing image_path metadata
 
     Returns:
         pd.DataFrame: Original DataFrame with new rows for missing images,
