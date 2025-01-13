@@ -210,7 +210,7 @@ def save_yolo_annotations(df: pd.DataFrame, out_folder: str):
 
     for img, data in df.groupby('img'):
         img = str(img)
-        filename = f'{img.split('.')[0]}.txt'
+        filename = f'{img.split(".")[0]}.txt'
         output = data[[c.MULTIHOT_ENCODING_CLASS,
                        c.BBOX_X_CENTER, c.BBOX_Y_CENTER, c.BBOX_WIDTH, c.BBOX_HEIGHT]]
         output.to_csv(os.path.join(out_folder, filename), index=False, header=False, sep=" ")
