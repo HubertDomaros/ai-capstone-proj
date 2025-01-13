@@ -1,8 +1,12 @@
 import matplotlib.pyplot as plt
+from skmultilearn.model_selection import iterative_train_test_split
+
 from . import constants as c
 import pandas as pd
 import numpy as np
 import json
+import os
+import shutil
 
 
 def draw_bounding_box(xmin: int, ymin: int, xmax: int, ymax: int, edge_color: str = 'blue', linewidth: int = 2):
@@ -90,3 +94,105 @@ def save_dict_as_json(dict_to_save: dict, output_filepath: str) -> None:
     """Save dictionary to a JSON file at the specified path."""
     with open(output_filepath, 'w') as f:
         json.dump(dict_to_save, f)
+
+
+
+def train_test_val_image_split(input_df: pd.DataFrame, test_size: float = 0.2,
+                               val_size: float = 0.1) -> dict[str, np.ndarray]:
+    """
+    Splits the input DataFrame into training, testing, and validation sets
+    based on images. If there are multiple entries of the same image_path, it merges them by
+    maximum value of each label.
+
+    Parameters:
+    ----------
+    input_df : pd.DataFrame
+        A pandas DataFrame containing column 'img' with file names, bounding box coordinates
+        in format (xmin, xmax, ymin, ymax) and their corresponding multi-hot encoded labels.
+    test_size : float, default=0.2
+        Proportion of the dataset to include in the test split.
+    val_size : float, default=0.1
+        Proportion of the dataset to include in the validation split.
+
+    Returns:
+    -------
+    dict[str, np.ndarray]
+        A dictionary with keys 'train', 'test', and 'val',
+        each containing a NumPy array of image_path file names for the respective dataset.
+    """
+    if input_df.empty:
+        raise ValueError('Input DataFrame is empty')
+
+    if not (0 < test_size < 1) or not (0 <= val_size < 1):
+        raise ValueError("test_size and val_size must be between 0 and 1.")
+
+    if (test_size + val_size) >= 1:
+        raise ValueError("The sum of test_size and val_size must be less than 1.")
+
+    # Create a dictionary to store max values for each image
+    grouped_data = {}
+    for img_name, group in input_df.groupby(c.IMG):
+        grouped_data[img_name] = group[c.defect_names].max().to_numpy()
+
+    # Create new DataFrame with unique images and their labels
+    grouped_df = pd.DataFrame(columns=[c.IMG] + c.defect_names)
+    grouped_df[c.IMG] = list(grouped_data.keys())
+    mhot_labels = np.array(list(grouped_data.values()))
+
+    for i, defect in enumerate(c.defect_names):
+        grouped_df[defect] = mhot_labels[:, i]
+
+    # Prepare data for split
+    X = grouped_df[c.IMG].to_numpy().reshape(-1, 1)  # Make it 2D array
+    y = grouped_df[c.defect_names].to_numpy()
+
+    # Split the data
+    X_train, y_train, X_temp, y_temp = iterative_train_test_split(
+        X, y, test_size=(1 - test_size + val_size)
+    )
+
+    X_test, y_test, X_val, y_val = iterative_train_test_split(
+        X_temp, y_temp, test_size=test_size / (test_size + val_size)
+    )
+
+    return {
+        'train': X_train.flatten(),
+        'test': X_test.flatten(),
+        'val': X_val.flatten()
+    }
+
+
+def put_imgs_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: str, base_out_dir: str) -> None:
+    list_of_out_dirs = []
+    for k in train_test_val_dict.keys():
+        out_dir = os.path.join(base_out_dir, k)
+        list_of_out_dirs.append(out_dir)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        elif len(os.listdir(out_dir)) != 0:
+            raise ValueError('Output directory {} already exists'.format(out_dir))
+
+        for img_name in train_test_val_dict[k]:
+            input_img_path = os.path.join(input_dir, img_name)
+            out_img_path = os.path.join(out_dir, img_name)
+            shutil.copy(input_img_path, out_img_path)
+
+        print('Copying images to {} finished!'.format(out_dir))
+
+def put_labels_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: str, base_out_dir: str) -> None:
+    list_of_out_dirs = []
+    for k in train_test_val_dict.keys():
+        out_dir = os.path.join(base_out_dir, k)
+        list_of_out_dirs.append(out_dir)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        elif len(os.listdir(out_dir)) != 0:
+            raise ValueError('Output directory {} already exists'.format(out_dir))
+
+        for img_name in train_test_val_dict[k]:
+            label_name = img_name.split('.')[0] + '.txt'
+            input_img_path = os.path.join(input_dir, label_name)
+            out_img_path = os.path.join(out_dir, label_name)
+            shutil.copy(input_img_path, out_img_path)
+
+        print('Copying images to {} finished!'.format(out_dir))
