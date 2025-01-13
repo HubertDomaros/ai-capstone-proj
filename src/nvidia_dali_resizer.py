@@ -83,8 +83,8 @@ def resize_with_dali(input_dir, output_dir):
         batch_size=32,
         num_threads=4,
         device_id=0,
-        resize_width=224,
-        resize_height=224
+        resize_width=640,
+        resize_height=640
     )
 
     pipeline.build()
