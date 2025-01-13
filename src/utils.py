@@ -66,7 +66,7 @@ def list_of_dicts_to_dataframe(list_of_dicts, columns_list) -> pd.DataFrame:
 
 def plot_img_with_bboxes(img, bboxes) -> None:
     """
-    Plot an image with overlaid bounding boxes.
+    Plot an image_path with overlaid bounding boxes.
     Args:
         img (numpy.ndarray): Image array to plot
         bboxes (List[List[int]]): List of bounding boxes, where each box is [xmin, ymin, xmax, ymax]

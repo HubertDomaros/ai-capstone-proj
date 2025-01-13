@@ -6,7 +6,7 @@ import numpy.typing as npt
 import pandas as pd
 import numpy as np
 import albumentations.core.bbox_utils as bu
-from src import annotation_extractor as an_ext
+from src import annotations_processing as an_ext
 from src import constants as c
 import src.image_processing as improc
 import src.utils as u
@@ -39,7 +39,7 @@ out_f = r'D:\0-Code\PG\2_sem\0_Dyplom\ai-capstone-proj\examples\augumented'
 
 df: pd.DataFrame = an_ext.xml_annotations_to_dataframe('examples')
 datas = 0
-for fname, data in df.groupby('img')[list(c.columns_list[1:])]:
+for fname, data in df.groupby('img')[list(c.pascal_cols_list[1:])]:
     datas = data
 a = augment_image_and_save_to_folder(in_fpath, out_f, datas)
 print(a)

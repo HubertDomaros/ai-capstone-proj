@@ -162,9 +162,9 @@ class ImageAugmentorGPU:
 
     @property
     def processed_bboxes_yolo(self) -> List[List[float]]:
-        """Get bounding boxes in YOLO format [x_center, y_center, width, height]."""
+        """Get bounding boxes in YOLO format [x_center, y_center, img_width, img_height]."""
         boxes = self._augmented_bboxes.clone()
-        # Convert from x1,y1,x2,y2 to x_center,y_center,width,height
+        # Convert from x1,y1,x2,y2 to x_center,y_center,img_width,img_height
         boxes = box_convert(boxes, 'xyxy', 'cxcywh')
         return boxes.cpu().numpy().tolist()
 

@@ -21,7 +21,7 @@ from src.preprocessing.image_splitter import (
 def test_train_test_val_image_split_basic():
     # Create sample DataFrame
     data = {
-        'image': ['img1.jpg', 'img2.jpg', 'img1.jpg', 'img3.jpg'],
+        'image_path': ['img1.jpg', 'img2.jpg', 'img1.jpg', 'img3.jpg'],
         'xmin': [0, 10, 5, 20],
         'xmax': [100, 110, 105, 120],
         'ymin': [0, 15, 10, 25],
@@ -31,7 +31,7 @@ def test_train_test_val_image_split_basic():
     }
     df = pd.DataFrame(data)
 
-    # Expected grouping by 'image' with max labels
+    # Expected grouping by 'image_path' with max labels
     expected_images = np.array(['img1.jpg', 'img2.jpg', 'img3.jpg'])
 
     # Mock iterative_train_test_split to return predefined splits
@@ -56,7 +56,7 @@ def test_train_test_val_image_split_basic():
 
 
 def test_train_test_val_image_split_empty_df():
-    df = pd.DataFrame(columns=['image', 'xmin', 'xmax', 'ymin', 'ymax', 'label1', 'label2'])
+    df = pd.DataFrame(columns=['image_path', 'xmin', 'xmax', 'ymin', 'ymax', 'label1', 'label2'])
 
     with pytest.raises(ValueError, match='Input DataFrame is empty'):
         train_test_val_image_split(df)
@@ -64,7 +64,7 @@ def test_train_test_val_image_split_empty_df():
 
 def test_train_test_val_image_split_single_image():
     data = {
-        'image': ['img1.jpg', 'img1.jpg'],
+        'image_path': ['img1.jpg', 'img1.jpg'],
         'xmin': [0, 5],
         'xmax': [100, 105],
         'ymin': [0, 10],
@@ -107,7 +107,7 @@ def test_train_test_val_image_split_single_image():
 
 def test_train_test_val_image_split_invalid_sizes():
     df = pd.DataFrame({
-        'image': ['img1.jpg', 'img2.jpg'],
+        'image_path': ['img1.jpg', 'img2.jpg'],
         'xmin': [0, 10],
         'xmax': [100, 110],
         'ymin': [0, 15],

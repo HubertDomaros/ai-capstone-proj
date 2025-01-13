@@ -4,4 +4,13 @@ xmltodict~=0.14.2
 pytest~=8.3.4
 matplotlib~=3.8.4
 opencv-python~=4.10.0.84
-albumentations~=1.4.24
+albumentations~=2.0.0
+
+scikit-multilearn~=0.2.0
+tensorflow~=2.18.0
+keras~=3.8.0
+imagesize~=1.4.1
+protobuf~=4.25.5
+torchvision~=0.20.1
+pillow~=10.3.0
+torch~=2.5.1

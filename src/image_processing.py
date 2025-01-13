@@ -1,12 +1,19 @@
 import os
+import shutil
 from typing import List, Tuple, Dict, Any
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+from tqdm import tqdm
 
 import albumentations as A
 import albumentations.core.bbox_utils as A_bbox_utils
+
+import torch
+import torchvision.transforms as transforms
+import torch.nn.functional as F
+from PIL import Image
 
 from . import utils as u
 
@@ -14,22 +21,22 @@ from . import utils as u
 class ImageAugumentor:
     """
     A class for augmenting images with bounding boxes and labels.
-    Provides functionality for image preprocessing, augmentation, and format conversion.
+    Provides functionality for image_path preprocessing, augmentation, and format conversion.
     """
 
     def __init__(self, filepath: str,
                  label_values: List[Tuple[int, ...]],
                  bounding_boxes: NDArray[NDArray[int]]):
         """
-        Initialize the ImageAugumentor with image file path, bounding boxes, and label values.
+        Initialize the ImageAugumentor with image_path file path, bounding boxes, and label values.
 
         Args:
-            filepath (str): Path to the image file.
+            filepath (str): Path to the image_path file.
             bounding_boxes (NDArray[NDArray[int]]): List of bounding boxes in albumentations format.
             label_values (List[Tuple[int, ...]]): List of label values.
 
         Raises:
-            IOError: If the provided filepath is not a valid image.
+            IOError: If the provided filepath is not a valid image_path.
         """
         self._filepath = filepath
         self._original_img = self._load_image(filepath)
@@ -48,15 +55,15 @@ class ImageAugumentor:
     @staticmethod
     def _load_image(filepath) -> cv2.Mat:
         """
-        Load and preprocess the input image.
+        Load and preprocess the input image_path.
         Returns:
-            cv2.Mat: Preprocessed image in RGB format
+            cv2.Mat: Preprocessed image_path in RGB format
         Raises:
-            IOError: If the file is not a valid image
+            IOError: If the file is not a valid image_path
         """
         img = cv2.imread(filepath, 1)
         if img is None:
-            raise IOError(f'{filepath} is not an image')
+            raise IOError(f'{filepath} is not an image_path')
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     def _convert_to_albumentations_format(self, bounding_boxes: NDArray[NDArray[int]]) -> NDArray:
@@ -134,7 +141,7 @@ class ImageAugumentor:
 
     def _add_padding(self) -> 'ImageAugumentor':
         """
-        Add padding to the image to make it square.
+        Add padding to the image_path to make it square.
 
         Returns:
             ImageAugumentor: Self for method chaining
@@ -162,17 +169,17 @@ class ImageAugumentor:
         Args:
             augmented (Dict[str, Any]): Augmentation results
         """
-        self._augmented_img = augmented['image']
+        self._augmented_img = augmented['image_path']
         self._augmented_bboxes = augmented['bboxes']
         self._augmented_label_values = augmented['label_fields']
 
     def resize(self, out_width: int = 512, out_height: int = 512) -> 'ImageAugumentor':
         """
-        Resize the image to the specified width and height.
+        Resize the image_path to the specified img_width and img_height.
 
         Args:
-            out_width (int, optional): Output width. Defaults to 512.
-            out_height (int, optional): Output height. Defaults to 512.
+            out_width (int, optional): Output img_width. Defaults to 512.
+            out_height (int, optional): Output img_height. Defaults to 512.
 
         Returns:
             self: The instance itself.
@@ -193,7 +200,7 @@ class ImageAugumentor:
 
     def apply_augumentations(self) -> 'ImageAugumentor':
         """
-        Apply a series of augmentations to the image.
+        Apply a series of augmentations to the image_path.
 
         Returns:
             ImageAugumentor: Self for method chaining
@@ -209,20 +216,20 @@ class ImageAugumentor:
 
     def plot_processed_img_with_bboxes(self) -> None:
         """
-        Plot the processed image with bounding boxes.
+        Plot the processed image_path with bounding boxes.
         """
         u.plot_img_with_bboxes(self._augmented_img, self.processed_bboxes_pascal_voc)
 
     @property
     def processed_image(self) -> cv2.typing.MatLike:
-        """Get the augmented image."""
+        """Get the augmented image_path."""
         return self._augmented_img
 
     @property
     def processed_image_name(self) -> str:
-        """Get the augmented image name."""
+        """Get the augmented image_path name."""
         if self._augmented_img_name is None:
-            raise ValueError('Image name is not set. Set image name first by calling setter processed_image_name()')
+            raise ValueError('Image name is not set. Set image_path name first by calling setter processed_image_name()')
         return self._augmented_img_name
 
     @processed_image_name.setter
@@ -258,7 +265,7 @@ class ImageAugumentor:
     @property
     def metadata_dict(self) -> dict:
         """
-        Generate a dictionary containing metadata for the processed image, bounding boxes, and label values.
+        Generate a dictionary containing metadata for the processed image_path, bounding boxes, and label values.
 
         Returns:
             dict: A dictionary with keys 'img', 'bboxes', and 'label_values'.
@@ -276,14 +283,14 @@ def generate_augmented_images(image_path: str,
                               num_augmentations: int = 8, resize: bool = True,
                               target_width: int = 512, target_height: int = 512) -> list[ImageAugumentor]:
     """
-    Generate multiple augmented versions of an input image with corresponding bounding boxes and labels.
+    Generate multiple augmented versions of an input image_path with corresponding bounding boxes and labels.
 
-    This function creates multiple variations of the input image by applying random augmentations
-    like flips, rotations, and color changes. Each augmented image maintains the correct positions
+    This function creates multiple variations of the input image_path by applying random augmentations
+    like flips, rotations, and color changes. Each augmented image_path maintains the correct positions
     of bounding boxes and their associated labels.
 
     Args:
-        image_path (str): Path to the source image file.
+        image_path (str): Path to the source image_path file.
         bounding_boxes (NDArray[NDArray[int]]): Array of bounding boxes in pascal_voc format,
             where each box is [xmin, ymin, xmax, ymax].
         label_values (list[list[int]]): Multi-hot encoded labels for each bounding box.
@@ -295,12 +302,12 @@ def generate_augmented_images(image_path: str,
 
     Returns:
         list[ImageAugumentor]: List of ImageAugumentor objects, each containing an augmented version
-            of the input image with corresponding bounding boxes and labels.
+            of the input image_path with corresponding bounding boxes and labels.
 
     Example:
         >>> bboxes = np.array([[0, 0, 100, 100], [150, 150, 200, 200]])
         >>> labels = [[1, 0], [0, 1]]  # Two classes, one label per bbox
-        >>> augmented = generate_augmented_images('image.jpg', bboxes, labels, num_augmentations=5)
+        >>> augmented = generate_augmented_images('image_path.jpg', bboxes, labels, num_augmentations=5)
     """
 
     base_name = os.path.splitext(os.path.basename(image_path))[0]
@@ -328,3 +335,92 @@ def generate_augmented_images(image_path: str,
         augmented_images.append(augmentor)
 
     return augmented_images
+
+
+def resize_image_gpu(image_path, target_width, target_height):
+    """
+    Resize image using PyTorch on GPU.
+
+    Args:
+        image_path: path to image to resize.
+        target_width: target width
+        target_height: target height
+
+    Returns:
+        Resized image as PIL Image
+    """
+    # Read image directly to tensor and move to GPU in one step
+    img_tensor = transforms.ToTensor()(Image.open(image_path)).unsqueeze_(0).cuda()
+
+    # Use bilinear interpolation and align_corners for better quality/speed tradeoff
+    with torch.amp.autocast(device_type='cuda'):  # Use automatic mixed precision
+        resized_tensor = torch.nn.functional.interpolate(
+            img_tensor,
+            size=(target_height, target_width),
+            mode='bilinear',
+            align_corners=False
+        )
+
+    # Convert back to PIL efficiently
+    resized_image = transforms.ToPILImage()(resized_tensor.squeeze(0).cpu())
+
+    return resized_image
+
+def resize_image_gpu2(image_path, target_width, target_height):
+    """
+    Resize image using PyTorch on GPU.
+
+    Args:
+        image_path: path to image to resize.
+        target_width: target width
+        target_height: target height
+
+    Returns:
+        Resized image as PIL Image
+    """
+    # Read image directly to tensor and move to GPU in one step
+    img_tensor = transforms.ToTensor()(Image.open(image_path)).unsqueeze_(0).cuda()
+
+    # Use bilinear interpolation and align_corners for better quality/speed tradeoff
+    with torch.cuda.amp.autocast():  # Use automatic mixed precision
+        resized_tensor = torch.nn.functional.interpolate(
+            img_tensor,
+            size=(target_height, target_width),
+            mode='bilinear',
+            align_corners=False
+        )
+
+    # Convert back to PIL efficiently
+    resized_image = transforms.ToPILImage()(resized_tensor.squeeze(0).cpu())
+
+    return resized_image
+
+def resize_images_pytorch(input_dir: str, output_dir: str, target_width: int, target_height: int, delete_output_dir: bool = False):
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Check if output directory is empty
+    if os.path.exists(output_dir) and os.listdir(output_dir) != 0 and not delete_output_dir:
+        raise OSError("Output folder is not empty")
+
+    if delete_output_dir:
+        shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
+
+    for filename in tqdm(os.listdir(input_dir)):
+        if filename.endswith(".jpg"):
+            input_path = os.path.join(input_dir, filename)  # Create full input path
+            output_path = os.path.join(output_dir, filename)  # Create full output path
+
+            # Resize image
+            resized_image = resize_image_gpu(input_path, target_width, target_height)
+
+            # Save resized image
+            resized_image.save(output_path)
+
+    print('Resizing done.')
+
+
+
+# # Example usage
+# img = cv2.imread('image_path.jpg')
+# resized_img = resize_image_gpu(img, (224, 224))

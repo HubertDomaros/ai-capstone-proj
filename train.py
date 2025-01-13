@@ -1,20 +1,20 @@
 import tensorflow as tf
 import keras.api as keras
-from src.annotation_extractor import xml_annotations_to_dataframe
+from src.annotations_processing import xml_annotations_to_dataframe
 
 xmls_folder = r'kaggle/input/codebrim-original/original_dataset/annotations/'
 imgs_folder = r'kaggle/input/codebrim-original/original_dataset/images/'
 df = xml_annotations_to_dataframe(xmls_folder)
 
-# Normalize bounding boxes based on image dimensions
-df['xmax'] = df['xmin'] + df['width']
-df['ymax'] = df['ymin'] + df['height']
+# Normalize bounding boxes based on image_path dimensions
+df['xmax'] = df['xmin'] + df['img_width']
+df['ymax'] = df['ymin'] + df['img_height']
 
 # Normalize box coordinates to [0,1]
-df['xmin'] = df['xmin'] / df['width']
-df['ymin'] = df['ymin'] / df['height']
-df['xmax'] = df['xmax'] / df['width']
-df['ymax'] = df['ymax'] / df['height']
+df['xmin'] = df['xmin'] / df['img_width']
+df['ymin'] = df['ymin'] / df['img_height']
+df['xmax'] = df['xmax'] / df['img_width']
+df['ymax'] = df['ymax'] / df['img_height']
 
 # Defect labels for multi-hot encoding
 defect_labels = ['Background', 'Crack', 'Spallation', 'Efflorescence', 'ExposedBars', 'CorrosionStain']
@@ -22,7 +22,7 @@ defect_labels = ['Background', 'Crack', 'Spallation', 'Efflorescence', 'ExposedB
 # Prepare bounding box data without merging overlapping boxes
 bbox_labels = df[['img', 'xmin', 'ymin', 'xmax', 'ymax'] + defect_labels]
 
-# Prepare image paths, bounding boxes, and labels
+# Prepare image_path paths, bounding boxes, and labels
 img_names = bbox_labels['img'].values
 bounding_boxes = bbox_labels[['xmin', 'ymin', 'xmax', 'ymax']].values
 multi_hot_labels = bbox_labels[defect_labels].values

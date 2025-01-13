@@ -83,8 +83,8 @@ def sample_xml_dict():
             'folder': 'images',
             'filename': 'image_0000005.jpg',
             'size': {
-                'width': '1904',
-                'height': '2856',
+                'img_width': '1904',
+                'img_height': '2856',
                 'depth': '3'
             },
             'object': [
@@ -149,7 +149,7 @@ def test_parse_dict_annotation(sample_xml_dict):
     ]
     assert all(col in df.columns for col in expected_cols)
 
-    # Check the image name
+    # Check the image_path name
     assert (df['img_name'] == 'image_0000005.jpg').all()
 
     # Check bounding box columns
@@ -185,8 +185,8 @@ def test_parse_dict_annotation_no_defects():
             'folder': 'images',
             'filename': 'image_0000010.jpg',
             'size': {
-                'width': '1000',
-                'height': '1000',
+                'img_width': '1000',
+                'img_height': '1000',
                 'depth': '3'
             },
             'object': [
@@ -633,7 +633,7 @@ def test_duplicate_image_filenames(file_contents_dict, caplog):
     with patch("os.listdir", new=mock_listdir_factory(file_contents_dict)):
         with patch("builtins.open", new=mock_open_factory(file_contents_dict)):
             df = parser.parse_xmls_to_dataframe()
-            # Behavior is project-specific. Possibly 2 rows for the same image.
+            # Behavior is project-specific. Possibly 2 rows for the same image_path.
             assert not df.empty
             # E.g., if each file leads to a row, might have 2:
             # assert len(df) == 2
