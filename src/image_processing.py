@@ -406,6 +406,7 @@ def resize_images_pytorch(input_dir: str, output_dir: str, target_width: int, ta
         shutil.rmtree(output_dir)
         os.makedirs(output_dir)
 
+
     for filename in tqdm(os.listdir(input_dir)):
         if filename.endswith(".jpg"):
             input_path = os.path.join(input_dir, filename)  # Create full input path
@@ -420,7 +421,96 @@ def resize_images_pytorch(input_dir: str, output_dir: str, target_width: int, ta
     print('Resizing done.')
 
 
+def resize_images_pytorch2(input_dir: str, output_dir: str, target_width: int, target_height: int,
+                          delete_output_dir: bool = False, batch_size: int = 32):
+    os.makedirs(output_dir, exist_ok=True)
 
-# # Example usage
-# img = cv2.imread('image_path.jpg')
-# resized_img = resize_image_gpu(img, (224, 224))
+    # Check if output directory is empty
+    if os.path.exists(output_dir) and os.listdir(output_dir) != 0 and not delete_output_dir:
+        raise OSError("Output folder is not empty")
+
+    if delete_output_dir:
+        shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
+
+    # Get all jpg files
+    image_files = [f for f in os.listdir(input_dir) if f.endswith('.jpg')]
+    total_images = len(image_files)
+
+    # Process images in batches
+    processed_count = 0
+    pbar = tqdm(total=total_images, desc="Resizing images")
+
+    while processed_count < total_images:
+        # Determine batch size for this iteration
+        current_batch_size = min(batch_size, total_images - processed_count)
+
+        # Get the batch of filenames
+        batch_files = image_files[processed_count:processed_count + current_batch_size]
+
+        # Create input and output paths for the batch
+        input_paths = [os.path.join(input_dir, f) for f in batch_files]
+        output_paths = [os.path.join(output_dir, f) for f in batch_files]
+
+        # Process the batch
+        resized_images = resize_image_gpu_batch(input_paths, target_width, target_height)
+
+        # Save all images in the batch
+        for img, out_path in zip(resized_images, output_paths):
+            img.save(out_path)
+
+        # Update progress
+        processed_count += current_batch_size
+        pbar.update(current_batch_size)
+
+    pbar.close()
+
+
+def resize_image_gpu_batch(input_paths: List[str], target_width: int, target_height: int) -> List[Image.Image]:
+    """
+    Batch version of resize_image_gpu that processes multiple images at once
+
+    Args:
+        input_paths: List of paths to input images
+        target_width: Target width for resized images
+        target_height: Target height for resized images
+
+    Returns:
+        List of resized PIL Images
+    """
+    # Load images in batch
+    images = [Image.open(path) for path in input_paths]
+
+    # Convert to tensors
+    tensors = [transforms.ToTensor()(img) for img in images]
+    batch = torch.stack(tensors).cuda()
+
+    # Resize batch
+    resize_transform = transforms.Resize((target_height, target_width),
+                                         interpolation=transforms.InterpolationMode.BILINEAR,
+                                         antialias=True)
+    resized_batch = resize_transform(batch)
+
+    # Convert back to PIL Images
+    to_pil = transforms.ToPILImage()
+    resized_images = [to_pil(img.cpu()) for img in resized_batch]
+
+    return resized_images
+
+def put_imgs_in_folders(input_dict: dict[str, np.ndarray], input_dir: str, base_out_dir: str) -> None:
+    list_of_out_dirs = []
+    for k in input_dict.keys():
+        out_dir = os.path.join(base_out_dir, k)
+        list_of_out_dirs.append(out_dir)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        elif len(os.listdir(out_dir)) != 0:
+            raise ValueError('Output directory {} already exists'.format(out_dir))
+
+        for img_name in input_dict[k]:
+            img_name = img_name.split('.')[0] + '.txt'
+            input_img_path = os.path.join(input_dir, img_name)
+            out_img_path = os.path.join(out_dir, img_name)
+            shutil.copy(input_img_path, out_img_path)
+
+        print('Copying images to {} finished!'.format(out_dir))
