@@ -3,7 +3,7 @@
 # Define paths
 from sys import platform
 
-def resize_with_dali():
+def resize_with_dali(input_dir, output_dir):
     if platform == 'win32':
         print('This function is not runnable on Windows :/')
     import os
@@ -15,8 +15,6 @@ def resize_with_dali():
     import numpy as np
 
     # Define paths
-    input_dir = "/kaggle/input/codebrim-original/original_dataset/images"
-    output_dir = "/kaggle/working/resized"
     os.makedirs(output_dir, exist_ok=True)
     image_files = sorted([f for f in os.listdir(input_dir) if f.endswith('.jpg')])
     total_images = len(image_files)
