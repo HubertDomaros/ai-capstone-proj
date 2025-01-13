@@ -148,11 +148,12 @@ def generate_multihot_encoding_combinations(n) -> list[tuple[int, list[int]]]:
     return combinations
 
 
-def convert_single_pascal_bbox_to_yolo(bbox, img_height, img_width, multihot_label):
-    xmin = bbox[0] / img_width
-    ymin = bbox[1] / img_height
-    xmax = bbox[2] / img_width
-    ymax = bbox[3] / img_height
+def convert_single_pascal_bbox_to_yolo(in_XMIN, in_YMIN, in_XMAX, in_YMAX,
+                                       img_height, img_width, multihot_label):
+    xmin = in_XMIN / img_width
+    ymin = in_YMIN / img_height
+    xmax = in_XMAX / img_width
+    ymax = in_YMAX / img_height
 
     bbox_width = xmax - xmin
     bbox_height = ymax - ymin
@@ -183,13 +184,14 @@ def pascal_df_to_yolo(df: pd.DataFrame) -> pd.DataFrame:
     }
     for iterrow in df.iterrows():
         row = iterrow[1]
-        width = row[c.IMG_WIDTH]
-        height = row[c.IMG_HEIGHT]
-        bbox = row[c.bbox_coordinate_names].tolist()
+        img_width = row[c.IMG_WIDTH]
+        img_height = row[c.IMG_HEIGHT]
 
         multihot_encoding = row[c.defect_names].tolist()
-        converted_bbox = (convert_single_pascal_bbox_to_yolo(bbox, width, height,
-                                                             multihot_encoding))
+        converted_bbox = convert_single_pascal_bbox_to_yolo(in_XMIN=row[c.XMIN], in_YMIN=row[c.YMIN],
+                                                             in_XMAX=row[c.XMAX], in_YMAX=row[c.YMAX],
+                                                             img_height=img_height, img_width=img_width,
+                                                             multihot_label=multihot_encoding)
 
         for key, value in converted_bbox.items():
             converted_bboxes[key].append(value)
@@ -252,21 +254,24 @@ def train_test_val_image_split(input_df: pd.DataFrame, test_size: float = 0.2,
     if (test_size + val_size) >= 1:
         raise ValueError("The sum of test_size and val_size must be less than 1.")
 
-    # Group by image and combine labels
-    grouped_df = input_df.groupby(c.IMG).agg({
-        c.defect_names: lambda x: tuple(np.array(x.tolist()).max(axis=0).tolist())
-    }).reset_index()
+    # Create a dictionary to store max values for each image
+    grouped_data = {}
+    for img_name, group in input_df.groupby(c.IMG):
+        grouped_data[img_name] = group[c.defect_names].max().to_numpy()
 
-    print(grouped_df)
+    # Create new DataFrame with unique images and their labels
+    grouped_df = pd.DataFrame(columns=[c.IMG] + c.defect_names)
+    grouped_df[c.IMG] = list(grouped_data.keys())
+    mhot_labels = np.array(list(grouped_data.values()))
 
-    input_df_cols = input_df.columns.tolist()
+    for i, defect in enumerate(c.defect_names):
+        grouped_df[defect] = mhot_labels[:, i]
 
-    # is_original_df = all(defect in input_df_cols for defect in c.pascal_cols_list)
-    mhot_encoding = grouped_df[c.defect_names].to_numpy()
+    # Prepare data for split
+    X = grouped_df[c.IMG].to_numpy().reshape(-1, 1)  # Make it 2D array
+    y = grouped_df[c.defect_names].to_numpy()
 
-    y = mhot_encoding
-    X = grouped_df[c.IMG].to_numpy()
-
+    # Split the data
     X_train, y_train, X_temp, y_temp = iterative_train_test_split(
         X, y, test_size=(1 - test_size + val_size)
     )
@@ -276,9 +281,9 @@ def train_test_val_image_split(input_df: pd.DataFrame, test_size: float = 0.2,
     )
 
     return {
-        'train': X_train,
-        'test': X_test,
-        'val': X_val
+        'train': X_train.flatten(),
+        'test': X_test.flatten(),
+        'val': X_val.flatten()
     }
 
 
