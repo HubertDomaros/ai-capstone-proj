@@ -1,11 +1,8 @@
 import os
-import re
 
 import xmltodict
 import imagesize
 import pandas as pd
-import numpy as np
-from skmultilearn.model_selection import iterative_train_test_split
 
 from . import constants as c
 from . import utils as u
@@ -84,7 +81,7 @@ def xml_annotations_to_dataframe(folder_path: str) -> pd.DataFrame:
     return pd.DataFrame(lst)
 
 
-def fill_missing_imgs_in_df(img_folder_path, input_df):
+def fill_missing_imgs_in_df(img_folder, input_df):
     """
     Adds missing images from a folder to a DataFrame containing image_path metadata.
     For each image_path in the folder that's not in the input DataFrame, gets its dimensions
@@ -100,31 +97,30 @@ def fill_missing_imgs_in_df(img_folder_path, input_df):
     """
     # Get list of images
     img_list = []
-    for dirpath, dirnames, filenames in os.walk(img_folder_path):
-        if dirpath == img_folder_path:
+    for dirpath, dirnames, filenames in os.walk(img_folder):
+        if dirpath == img_folder:
             img_list = filenames
             break
-
+    input_df_images = input_df['img'].tolist()
     # Process images sequentially
     results = []
-    input_imgs_from_df = input_df[c.IMG].tolist()
     for img in img_list:
-
-        if img not in input_df[c.IMG].tolist() and img.split('.')[-1] == 'img':
-            img_path = os.path.join(os.getcwd(), img_folder_path, img)
-            # using awesome imagesize lib! Super fast! super cool! Supageil!
+        if img not in input_df_images:
+            img_path = os.path.join(os.getcwd(), img_folder, img)
+            # using awesome imagesize lib! Super fast! super cool!
             # https://github.com/shibukawa/imagesize_py
             shape = imagesize.get(img_path)
-            l = [0] * len(c.pascal_cols_list)
-            l[0] = img
-            l[1] = shape[0]
-            l[2] = shape[1]
-            l[7] = 1
-            results.append(l)
+            ll = [0] * len(c.pascal_cols_list)
+            ll[0] = img
+            ll[1] = shape[0]
+            ll[2] = shape[1]
+            ll[7] = 1
+            results.append(ll)
 
     # Filter out None results and add to DataFrame
     out_df = 0
-    out_df = pd.concat([input_df, pd.DataFrame(results, columns=c.pascal_cols_list)], ignore_index=True)
+    if results:
+        out_df = pd.concat([input_df, pd.DataFrame(results, columns=c.pascal_cols_list)], ignore_index=True)
     return out_df
 
 
@@ -219,72 +215,6 @@ def save_yolo_annotations(df: pd.DataFrame, out_folder: str):
         i += 1
 
     print(f'Saved {i} annotations to {out_folder}')
-
-
-
-def train_test_val_image_split(input_df: pd.DataFrame, test_size: float = 0.2,
-                               val_size: float = 0.1) -> dict[str, np.ndarray]:
-    """
-    Splits the input DataFrame into training, testing, and validation sets
-    based on images. If there are multiple entries of the same image_path, it merges them by
-    maximum value of each label.
-
-    Parameters:
-    ----------
-    input_df : pd.DataFrame
-        A pandas DataFrame containing column 'img' with file names, bounding box coordinates
-        in format (xmin, xmax, ymin, ymax) and their corresponding multi-hot encoded labels.
-    test_size : float, default=0.2
-        Proportion of the dataset to include in the test split.
-    val_size : float, default=0.1
-        Proportion of the dataset to include in the validation split.
-
-    Returns:
-    -------
-    dict[str, np.ndarray]
-        A dictionary with keys 'train', 'test', and 'val',
-        each containing a NumPy array of image_path file names for the respective dataset.
-    """
-    if input_df.empty:
-        raise ValueError('Input DataFrame is empty')
-
-    if not (0 < test_size < 1) or not (0 <= val_size < 1):
-        raise ValueError("test_size and val_size must be between 0 and 1.")
-
-    if (test_size + val_size) >= 1:
-        raise ValueError("The sum of test_size and val_size must be less than 1.")
-
-    # Create a dictionary to store max values for each image
-    grouped_data = {}
-    for img_name, group in input_df.groupby(c.IMG):
-        grouped_data[img_name] = group[c.defect_names].max().to_numpy()
-
-    # Create new DataFrame with unique images and their labels
-    grouped_df = pd.DataFrame(columns=[c.IMG] + c.defect_names)
-    grouped_df[c.IMG] = list(grouped_data.keys())
-    mhot_labels = np.array(list(grouped_data.values()))
-
-    for i, defect in enumerate(c.defect_names):
-        grouped_df[defect] = mhot_labels[:, i]
-
-    # Prepare data for split
-    X = grouped_df[c.IMG].to_numpy().reshape(-1, 1)  # Make it 2D array
-    y = grouped_df[c.defect_names].to_numpy()
-
-    # Split the data
-    X_train, y_train, X_temp, y_temp = iterative_train_test_split(
-        X, y, test_size=(1 - test_size + val_size)
-    )
-
-    X_test, y_test, X_val, y_val = iterative_train_test_split(
-        X_temp, y_temp, test_size=test_size / (test_size + val_size)
-    )
-
-    return {
-        'train': X_train.flatten(),
-        'test': X_test.flatten(),
-        'val': X_val.flatten()
-    }
 
 
 
