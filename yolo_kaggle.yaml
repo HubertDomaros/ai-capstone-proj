@@ -1,5 +1,4 @@
-# Train/val/test sets
-path: ../datasets/your_dataset  # dataset root dir
+path: /kaggle/working/datasets  # dataset root dir
 train: train  # train images (relative to 'path')
 val: val  # val images (relative to 'path')
 test: test # test images (optional)
@@ -69,4 +68,4 @@ names:
   60: '111100'
   61: '111101'
   62: '111110'
-  63: '111111'
+  63: '111111'"
