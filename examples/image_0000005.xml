@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<annotation>
+	<folder>images</folder>
+	<filename>image_0000005.jpg</filename>
+	<size>
+		<width>1904</width>
+		<height>2856</height>
+		<depth>3</depth>
+	</size>
+	<object>
+		<name>defect</name>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>661</xmin>
+			<ymin>472</ymin>
+			<xmax>992</xmax>
+			<ymax>1857</ymax>
+		</bndbox>
+		<Defect>
+			<Background>0</Background>
+			<Crack>0</Crack>
+			<Spallation>0</Spallation>
+			<Efflorescence>1</Efflorescence>
+			<ExposedBars>0</ExposedBars>
+			<CorrosionStain>1</CorrosionStain>
+		</Defect>
+	</object>
+	<object>
+		<name>defect</name>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1507</xmin>
+			<ymin>505</ymin>
+			<xmax>1904</xmax>
+			<ymax>2856</ymax>
+		</bndbox>
+		<Defect>
+			<Background>0</Background>
+			<Crack>0</Crack>
+			<Spallation>0</Spallation>
+			<Efflorescence>1</Efflorescence>
+			<ExposedBars>0</ExposedBars>
+			<CorrosionStain>1</CorrosionStain>
+		</Defect>
+	</object>
+</annotation>

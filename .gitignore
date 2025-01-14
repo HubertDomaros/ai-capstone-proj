@@ -1,0 +1,13 @@
+**__pycache__**
+**.vscode**
+kaggle
+.idea
+.vs
+examples/augumented
+brudnopis.ipynb
+pytorch_tests.ipynb
+yolo_labels
+/images/
+/runs/
+/labels/
+/datasets/
