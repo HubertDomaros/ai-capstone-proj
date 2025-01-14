@@ -1,7 +1,7 @@
-path: /kaggle/working/datasets  # dataset root dir
-train: train  # train images (relative to 'path')
-val: val  # val images (relative to 'path')
-test: test # test images (optional)
+path: /kaggle/working/ai-capstone-proj/datasets  # dataset root dir
+train: train/images  # train images (relative to 'path')
+val: val/images  # val images (relative to 'path')
+test: test/images # test images (optional)
 
 # Classes (64 binary combination classes)
 names:

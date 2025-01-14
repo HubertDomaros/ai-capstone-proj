@@ -8,3 +8,6 @@ brudnopis.ipynb
 pytorch_tests.ipynb
 yolo_labels
 /images/
+/runs/
+/labels/
+/datasets/
