@@ -366,34 +366,6 @@ def resize_image_gpu(image_path, target_width, target_height):
 
     return resized_image
 
-def resize_image_gpu2(image_path, target_width, target_height):
-    """
-    Resize image using PyTorch on GPU.
-
-    Args:
-        image_path: path to image to resize.
-        target_width: target width
-        target_height: target height
-
-    Returns:
-        Resized image as PIL Image
-    """
-    # Read image directly to tensor and move to GPU in one step
-    img_tensor = transforms.ToTensor()(Image.open(image_path)).unsqueeze_(0).cuda()
-
-    # Use bilinear interpolation and align_corners for better quality/speed tradeoff
-    with torch.cuda.amp.autocast():  # Use automatic mixed precision
-        resized_tensor = torch.nn.functional.interpolate(
-            img_tensor,
-            size=(target_height, target_width),
-            mode='bilinear',
-            align_corners=False
-        )
-
-    # Convert back to PIL efficiently
-    resized_image = transforms.ToPILImage()(resized_tensor.squeeze(0).cpu())
-
-    return resized_image
 
 def resize_images_pytorch(input_dir: str, output_dir: str, target_width: int, target_height: int, delete_output_dir: bool = False):
     os.makedirs(output_dir, exist_ok=True)
@@ -419,51 +391,6 @@ def resize_images_pytorch(input_dir: str, output_dir: str, target_width: int, ta
             resized_image.save(output_path)
 
     print('Resizing done.')
-
-
-def resize_images_pytorch2(input_dir: str, output_dir: str, target_width: int, target_height: int,
-                          delete_output_dir: bool = False, batch_size: int = 32):
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Check if output directory is empty
-    if os.path.exists(output_dir) and os.listdir(output_dir) != 0 and not delete_output_dir:
-        raise OSError("Output folder is not empty")
-
-    if delete_output_dir:
-        shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
-
-    # Get all jpg files
-    image_files = [f for f in os.listdir(input_dir) if f.endswith('.jpg')]
-    total_images = len(image_files)
-
-    # Process images in batches
-    processed_count = 0
-    pbar = tqdm(total=total_images, desc="Resizing images")
-
-    while processed_count < total_images:
-        # Determine batch size for this iteration
-        current_batch_size = min(batch_size, total_images - processed_count)
-
-        # Get the batch of filenames
-        batch_files = image_files[processed_count:processed_count + current_batch_size]
-
-        # Create input and output paths for the batch
-        input_paths = [os.path.join(input_dir, f) for f in batch_files]
-        output_paths = [os.path.join(output_dir, f) for f in batch_files]
-
-        # Process the batch
-        resized_images = resize_image_gpu_batch(input_paths, target_width, target_height)
-
-        # Save all images in the batch
-        for img, out_path in zip(resized_images, output_paths):
-            img.save(out_path)
-
-        # Update progress
-        processed_count += current_batch_size
-        pbar.update(current_batch_size)
-
-    pbar.close()
 
 
 def resize_image_gpu_batch(input_paths: List[str], target_width: int, target_height: int) -> List[Image.Image]:
@@ -514,3 +441,32 @@ def put_imgs_in_folders(input_dict: dict[str, np.ndarray], input_dir: str, base_
             shutil.copy(input_img_path, out_img_path)
 
         print('Copying images to {} finished!'.format(out_dir))
+
+
+def albumentations_to_yolo(bboxes):
+    out = []
+
+    for bbox in bboxes:
+        xmin, ymin, xmax, ymax = bbox
+        bbox_width = xmax - xmin
+        bbox_height = ymax - ymin
+        x_center = (xmax + xmin) / 2
+        y_center = (ymax + ymin) / 2
+        out.append([x_center, y_center, bbox_width, bbox_height])
+
+
+def yolo_to_albumentations(bboxes):
+    out = []
+
+    for bbox in bboxes:
+        label_val, x_center, y_center, width, height = bbox
+
+        # Convert center coordinates and dimensions to corner coordinates
+        xmin = x_center - (width / 2)
+        ymin = y_center - (height / 2)
+        xmax = x_center + (width / 2)
+        ymax = y_center + (height / 2)
+
+        out.append([label_val, xmin, ymin, xmax, ymax])
+
+    return out
