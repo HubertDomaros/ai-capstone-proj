@@ -1,3 +1,5 @@
+from typing import LiteralString
+
 import matplotlib.pyplot as plt
 from skmultilearn.model_selection import iterative_train_test_split
 
@@ -179,6 +181,7 @@ def put_imgs_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: s
 
         print('Copying images to {} finished!'.format(out_dir))
 
+
 def put_labels_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: str, base_out_dir: str) -> None:
     list_of_out_dirs = []
     for k in train_test_val_dict.keys():
@@ -196,3 +199,7 @@ def put_labels_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir:
             shutil.copy(input_img_path, out_img_path)
 
         print('Copying images to {} finished!'.format(out_dir))
+
+
+def join_cwd(*paths):
+    return os.path.join(os.getcwd(), *paths)

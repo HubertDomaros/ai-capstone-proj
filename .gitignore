@@ -4,8 +4,8 @@ kaggle
 .idea
 .vs
 examples/augumented
-brudnopis.ipynb
-pytorch_tests.ipynb
+notebooks/experimental/brudnopis.ipynb
+notebooks/old_trainings/pytorch_tests.ipynb
 yolo_labels
 images
 datasets
