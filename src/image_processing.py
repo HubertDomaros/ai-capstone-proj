@@ -470,3 +470,46 @@ def yolo_to_albumentations(bboxes):
         out.append([label_val, xmin, ymin, xmax, ymax])
 
     return out
+
+def resize_and_pad_to_square_yolo(image_path, output_path, target_size):
+    # Open an image file
+    with Image.open(image_path) as img:
+        # Get original dimensions
+        original_width, original_height = img.size
+        
+        # Determine the scaling factor based on the larger dimension
+        if original_width > original_height:
+            scale_factor = target_size / original_width
+        else:
+            scale_factor = target_size / original_height
+        
+        # Calculate new dimensions
+        new_width = int(original_width * scale_factor)
+        new_height = int(original_height * scale_factor)
+        
+        # Resize the image
+        resized_img = img.resize((new_width, new_height))
+        
+        # Create a new square image with a black background
+        square_img = Image.new("RGB", (target_size, target_size), (0, 0, 0))
+        
+        # Calculate position to center the resized image
+        position = ((target_size - new_width) // 2, (target_size - new_height) // 2)
+        
+        # Paste the resized image onto the square image
+        square_img.paste(resized_img, position)
+
+        # Save the padded image
+        square_img.save(output_path)
+
+        # Calculate YOLO format coordinates
+        # Center of the bounding box
+        center_x = (position[0] + new_width / 2) / target_size
+        center_y = (position[1] + new_height / 2) / target_size
+        
+        # Width and height of the bounding box
+        width = new_width / target_size
+        height = new_height / target_size
+        
+        # Return the padded image and YOLO format coordinates
+        return square_img, (center_x, center_y, width, height)
