@@ -471,7 +471,7 @@ def yolo_to_albumentations(bboxes):
 
     return out
 
-def resize_and_pad_to_square_yolo(image_path, output_path, target_size):
+def resize_and_pad_yolo(image_path, output_path, target_size):
     # Open an image file
     with Image.open(image_path) as img:
         # Get original dimensions
