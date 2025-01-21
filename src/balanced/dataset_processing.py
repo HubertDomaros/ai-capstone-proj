@@ -74,6 +74,10 @@ def copy_bg_and_defects(base_input_path, base_output_path) -> dict[str, str]:
     for split in ['val', 'test', 'train']:
         # Create split directory
         split_dir = join(base_output_path, split)
+        if os.path.exists(split_dir):
+            print(f'path {split_dir} already exists. Skipping copying operation')
+            continue
+
         makedirs(split_dir, exist_ok=True)
 
         print(f'copying {split} defect imgs to ~/{join(*base_out_splitted[-3:], split)}')

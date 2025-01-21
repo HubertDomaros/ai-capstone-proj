@@ -1,5 +1,3 @@
-from typing import LiteralString
-
 import matplotlib.pyplot as plt
 import xmltodict
 from skmultilearn.model_selection import iterative_train_test_split

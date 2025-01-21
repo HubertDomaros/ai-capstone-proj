@@ -1,6 +1,7 @@
 **__pycache__**
 **.vscode**
 kaggle
+kaggle_auth
 .idea
 .vs
 examples/augumented
