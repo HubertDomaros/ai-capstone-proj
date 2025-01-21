@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 from PIL import Image
 
-from . import utils as u
+from src import utils as u
 
 
 class ImageAugumentor:
@@ -513,3 +513,4 @@ def resize_and_pad_yolo(image_path, output_path, target_size):
         
         # Return the padded image and YOLO format coordinates
         return square_img, (center_x, center_y, width, height)
+

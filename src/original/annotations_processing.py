@@ -4,8 +4,8 @@ import xmltodict
 import imagesize
 import pandas as pd
 
-from . import constants as c
-from . import utils as u
+from src import constants as c
+from src import utils as u
 
 
 # bbox coordinates: object -> bndbox -> xmin, xmax, ymin, ymax

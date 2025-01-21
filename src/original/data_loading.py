@@ -2,11 +2,9 @@ import os
 
 import cv2
 import pandas as pd
-import numpy as np
-from skmultilearn.model_selection import iterative_train_test_split
 
 from src import constants as c
-import src.image_processing as improc
+import src.original.image_processing as improc
 import src.utils as u
 
 def augment_image_and_save_to_folder(input_file_path: str, output_folder: str, data: pd.DataFrame) -> dict:
