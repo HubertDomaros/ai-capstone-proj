@@ -1,12 +1,17 @@
 import matplotlib.pyplot as plt
+import xmltodict
 from skmultilearn.model_selection import iterative_train_test_split
+from tqdm import tqdm
 
 from . import constants as c
 import pandas as pd
 import numpy as np
 import json
 import os
+from os import listdir
+from os.path import join
 import shutil
+from shutil import copyfile
 
 
 def draw_bounding_box(xmin: int, ymin: int, xmax: int, ymax: int, edge_color: str = 'blue', linewidth: int = 2):
@@ -179,6 +184,7 @@ def put_imgs_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: s
 
         print('Copying images to {} finished!'.format(out_dir))
 
+
 def put_labels_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir: str, base_out_dir: str) -> None:
     list_of_out_dirs = []
     for k in train_test_val_dict.keys():
@@ -196,3 +202,20 @@ def put_labels_in_folders(train_test_val_dict: dict[str, np.ndarray], input_dir:
             shutil.copy(input_img_path, out_img_path)
 
         print('Copying images to {} finished!'.format(out_dir))
+
+
+def join_cwd(*paths):
+    return os.path.join(os.getcwd(), *paths)
+
+def xml_to_dict(filepath: str):
+    with open(filepath, 'r') as file:
+        xml = file.read()
+        return xmltodict.parse(xml)
+
+
+def copy_imgs(input_dir: str, out_dir: str):
+    list_indir = listdir(input_dir)
+    for file in tqdm(list_indir):
+        if file.endswith(('.png', '.jpg', '.jpeg')):
+            copyfile(join(input_dir, file), join(out_dir, file))
+
